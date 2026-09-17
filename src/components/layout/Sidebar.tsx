@@ -1,18 +1,20 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { UserRole } from '../../types/database';
+import { UserRole, Profile } from '../../types/database';
 import {
   LayoutDashboard, Users, UserCheck, GraduationCap, Calendar,
-  CreditCard, Receipt, FileText, PlusCircle, Settings, ShieldCheck, X, Sparkles
+  CreditCard, Receipt, FileText, PlusCircle, Settings, ShieldCheck, X, Sparkles, LogOut
 } from 'lucide-react';
 
 interface SidebarProps {
   role: UserRole;
+  currentUser?: Profile | null;
   mobileOpen?: boolean;
   onCloseMobileMenu?: () => void;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ role, mobileOpen, onCloseMobileMenu }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ role, currentUser, mobileOpen, onCloseMobileMenu, onLogout }) => {
   const isAdminOrBursar = role === 'super_admin' || role === 'bursar';
 
   const mainNavItems = isAdminOrBursar
@@ -111,15 +113,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, mobileOpen, onCloseMobil
         </nav>
       </div>
 
-      {/* Footer Info Box */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-50/80 to-indigo-50/80 border border-violet-100 text-xs text-slate-600 space-y-1">
-        <div className="flex items-center gap-1.5 font-bold text-violet-900">
-          <ShieldCheck className="w-4 h-4 text-violet-600" />
-          <span>Paystack Secured</span>
+      <div className="space-y-3 pt-2">
+        {/* Footer Info Box */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-50/80 to-indigo-50/80 border border-violet-100 text-xs text-slate-600 space-y-1">
+          <div className="flex items-center gap-1.5 font-bold text-violet-900">
+            <ShieldCheck className="w-4 h-4 text-violet-600" />
+            <span>Paystack Secured</span>
+          </div>
+          <p className="text-[10px] leading-tight text-slate-500 font-medium">
+            End-to-end encrypted school fee management & digital receipting.
+          </p>
         </div>
-        <p className="text-[11px] leading-tight text-slate-500 font-medium">
-          End-to-end encrypted school fee management & digital receipting.
-        </p>
+
+        {/* Current User Card & Logout Option */}
+        {currentUser && (
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-xs shrink-0 shadow-xs">
+                {currentUser.full_name.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-900 truncate leading-tight">{currentUser.full_name}</p>
+                <p className="text-[10px] text-slate-500 font-semibold capitalize truncate">{currentUser.role.replace('_', ' ')}</p>
+              </div>
+            </div>
+
+            {onLogout && (
+              <button
+                onClick={() => {
+                  onCloseMobileMenu?.();
+                  onLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-extrabold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 active:bg-rose-700 rounded-xl transition shadow-xs group cursor-pointer"
+              >
+                <LogOut className="w-4 h-4 text-rose-500 group-hover:text-white transition" />
+                <span>Log Out of Portal</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

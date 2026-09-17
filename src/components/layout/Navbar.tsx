@@ -74,15 +74,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="bg-white text-slate-800 border-b border-slate-100/90 sticky top-0 z-40 shadow-xs backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           
           {/* Brand & Mobile Hamburger Toggle */}
-          <div className="flex items-center space-x-3 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 mr-1">
             {onToggleMobileMenu && (
               <button
                 onClick={onToggleMobileMenu}
-                className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition lg:hidden"
+                className="p-1.5 sm:p-2 -ml-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition lg:hidden shrink-0"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -92,15 +92,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <img
               src={SCHOOL_INFO.logo}
               alt="SFCHS Logo"
-              className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-md shadow-indigo-500/10 border border-slate-100 shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-xl bg-white p-0.5 shadow-xs border border-slate-100 shrink-0"
             />
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 line-clamp-1">
-                  {SCHOOL_INFO.name}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center">
+                <span className="font-black text-xs sm:text-sm lg:text-base tracking-tight text-slate-900 truncate block" title={SCHOOL_INFO.name}>
+                  <span className="hidden xl:inline">{SCHOOL_INFO.name}</span>
+                  <span className="hidden sm:inline xl:hidden">Solid Foundation High School</span>
+                  <span className="sm:hidden font-extrabold text-slate-900 text-xs">Solid Foundation</span>
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-indigo-600 font-semibold italic hidden sm:block">
+              <p className="text-[10px] sm:text-xs text-indigo-600 font-semibold italic truncate hidden md:block">
                 "{SCHOOL_INFO.motto}" &bull; {SCHOOL_INFO.address.split(',')[0]}
               </p>
             </div>
@@ -117,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
             {/* Quick Action Icons & User Badge */}
-            <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0 relative" ref={dropdownRef}>
+            <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 relative" ref={dropdownRef}>
               
               {/* Cloud Sync Status Indicator */}
               <button
@@ -150,13 +152,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center space-x-0.5 sm:space-x-1">
                 
                 {/* Mail Button */}
-                <div className="relative">
+                <div className="relative hidden sm:block">
                   <button
                     onClick={() => {
                       setShowMailDropdown(prev => !prev);
                       setShowNotifDropdown(false);
                     }}
-                    className={`p-2 rounded-full transition relative ${
+                    className={`p-1.5 sm:p-2 rounded-full transition relative ${
                       showMailDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
                     }`}
                     title="Portal Messages & Emails"
@@ -171,7 +173,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   {/* Mail Dropdown Menu */}
                   {showMailDropdown && (
-                    <div className="absolute right-0 mt-3 w-[88vw] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-full mt-2 w-auto sm:w-96 max-w-sm ml-auto bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
                       <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Mail className="w-4 h-4 text-indigo-400" />
@@ -221,7 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setShowNotifDropdown(prev => !prev);
                       setShowMailDropdown(false);
                     }}
-                    className={`p-2 rounded-full transition relative ${
+                    className={`p-1.5 sm:p-2 rounded-full transition relative ${
                       showNotifDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
                     }`}
                     title="System Notifications"
@@ -236,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   {/* Notifications Dropdown Menu */}
                   {showNotifDropdown && (
-                    <div className="absolute right-0 mt-3 w-[88vw] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-full mt-2 w-auto sm:w-96 max-w-sm ml-auto bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
                       <div className="p-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Bell className="w-4 h-4 text-violet-200" />
@@ -287,15 +289,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             </div>
 
-            <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
+            <div className="h-5 w-px bg-slate-200 hidden sm:block"></div>
 
             {/* Current User Info Card */}
-            <div className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-50 hover:bg-slate-100/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-200/60 transition cursor-pointer shrink-0">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm shrink-0">
+            <div 
+              className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-50 hover:bg-slate-100/80 p-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-200/60 transition cursor-pointer shrink-0"
+              title={`${currentUser.full_name} (${currentUser.role.replace('_', ' ')})`}
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-xs shadow-xs shrink-0">
                 {currentUser.full_name.charAt(0)}
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser.full_name}</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px] md:max-w-none">{currentUser.full_name}</p>
                 <span className={`text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.2 rounded-full inline-block ${
                   currentUser.role === 'super_admin' ? 'bg-indigo-100 text-indigo-700' :
                   currentUser.role === 'bursar' ? 'bg-emerald-100 text-emerald-700' :
@@ -309,10 +314,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Logout button */}
             <button
               onClick={onLogout}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition"
-              title="Logout"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 active:bg-rose-700 rounded-xl transition shrink-0 flex items-center gap-1.5 text-xs font-bold shadow-2xs group cursor-pointer"
+              title="Log Out of Portal"
+              aria-label="Log Out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 text-rose-500 group-hover:text-white transition shrink-0" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
 

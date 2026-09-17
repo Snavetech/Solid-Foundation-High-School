@@ -60,8 +60,10 @@ export function App() {
           {currentUser && (
             <Sidebar
               role={currentUser.role}
+              currentUser={currentUser}
               mobileOpen={mobileMenuOpen}
               onCloseMobileMenu={() => setMobileMenuOpen(false)}
+              onLogout={handleLogout}
             />
           )}
 
