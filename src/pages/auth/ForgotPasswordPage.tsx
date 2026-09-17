@@ -13,13 +13,15 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white text-2xl font-extrabold shadow-lg mb-2">
-            {SCHOOL_INFO.logo}
-          </div>
+          <img
+            src={SCHOOL_INFO.logo}
+            alt="SFCHS Logo"
+            className="w-16 h-16 object-contain rounded-2xl mx-auto shadow-xl bg-white p-1 border border-slate-800 mb-3"
+          />
           <h2 className="text-xl font-bold text-white tracking-tight">
             Reset Password
           </h2>

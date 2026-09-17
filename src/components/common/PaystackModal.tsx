@@ -156,10 +156,10 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
         </div>
 
         {/* Paystack Channel Navigation Tabs */}
-        <div className="flex border-b border-slate-100 bg-slate-50 text-[11px] font-extrabold">
+        <div className="flex border-b border-slate-100 bg-slate-50 text-[11px] font-extrabold overflow-x-auto scrollbar-none">
           <button
             onClick={() => { setActiveTab('card'); setPinStep(false); setOtpStep(false); }}
-            className={`flex-1 py-3 px-1.5 flex items-center justify-center gap-1 border-b-2 transition ${
+            className={`shrink-0 sm:flex-1 py-3 px-3 sm:px-1.5 flex items-center justify-center gap-1.5 border-b-2 transition whitespace-nowrap ${
               activeTab === 'card'
                 ? 'border-[#09a5db] text-[#09a5db] bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -171,7 +171,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
           <button
             onClick={() => setActiveTab('transfer')}
-            className={`flex-1 py-3 px-1.5 flex items-center justify-center gap-1 border-b-2 transition ${
+            className={`shrink-0 sm:flex-1 py-3 px-3 sm:px-1.5 flex items-center justify-center gap-1.5 border-b-2 transition whitespace-nowrap ${
               activeTab === 'transfer'
                 ? 'border-[#09a5db] text-[#09a5db] bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -183,7 +183,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
           <button
             onClick={() => setActiveTab('ussd')}
-            className={`flex-1 py-3 px-1.5 flex items-center justify-center gap-1 border-b-2 transition ${
+            className={`shrink-0 sm:flex-1 py-3 px-3 sm:px-1.5 flex items-center justify-center gap-1.5 border-b-2 transition whitespace-nowrap ${
               activeTab === 'ussd'
                 ? 'border-[#09a5db] text-[#09a5db] bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -195,7 +195,7 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
 
           <button
             onClick={() => { setActiveTab('bank_account'); setBankAccOtpStep(false); }}
-            className={`flex-1 py-3 px-1.5 flex items-center justify-center gap-1 border-b-2 transition ${
+            className={`shrink-0 sm:flex-1 py-3 px-3 sm:px-1.5 flex items-center justify-center gap-1.5 border-b-2 transition whitespace-nowrap ${
               activeTab === 'bank_account'
                 ? 'border-[#09a5db] text-[#09a5db] bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-900'

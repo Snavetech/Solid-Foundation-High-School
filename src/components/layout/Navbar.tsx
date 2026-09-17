@@ -103,114 +103,114 @@ export const Navbar: React.FC<NavbarProps> = ({
             />
           </div>
 
-          {/* Quick Action Icons & User Badge */}
-          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 relative" ref={dropdownRef}>
-            
-            {/* Quick Icon Buttons */}
-            <div className="hidden sm:flex items-center space-x-1">
+            {/* Quick Action Icons & User Badge */}
+            <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0 relative" ref={dropdownRef}>
               
-              {/* Mail Button */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowMailDropdown(prev => !prev);
-                    setShowNotifDropdown(false);
-                  }}
-                  className={`p-2 rounded-full transition relative ${
-                    showMailDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
-                  }`}
-                  title="Portal Messages & Emails"
-                >
-                  <Mail className="w-4 h-4" />
-                  {unreadMailCount > 0 && (
-                    <span className="min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white font-extrabold text-[9px] flex items-center justify-center absolute -top-1 -right-1 ring-2 ring-white">
-                      {unreadMailCount}
-                    </span>
-                  )}
-                </button>
+              {/* Quick Icon Buttons */}
+              <div className="flex items-center space-x-0.5 sm:space-x-1">
+                
+                {/* Mail Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowMailDropdown(prev => !prev);
+                      setShowNotifDropdown(false);
+                    }}
+                    className={`p-2 rounded-full transition relative ${
+                      showMailDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                    }`}
+                    title="Portal Messages & Emails"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {unreadMailCount > 0 && (
+                      <span className="min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white font-extrabold text-[9px] flex items-center justify-center absolute -top-1 -right-1 ring-2 ring-white">
+                        {unreadMailCount}
+                      </span>
+                    )}
+                  </button>
 
-                {/* Mail Dropdown Menu */}
-                {showMailDropdown && (
-                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-indigo-400" />
-                        <span className="font-extrabold text-xs">Messages & e-Receipt Logs</span>
-                      </div>
-                      {unreadMailCount > 0 && (
-                        <button
-                          onClick={handleMarkMailsRead}
-                          className="text-[10px] font-extrabold text-indigo-300 hover:text-white transition"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
-                      {messages.length === 0 ? (
-                        <div className="p-6 text-center text-slate-400 font-medium">No messages or correspondence.</div>
-                      ) : (
-                        messages.map(m => (
-                          <div
-                            key={m.id}
-                            className={`p-3.5 space-y-1 transition ${m.read ? 'bg-white' : 'bg-indigo-50/40 font-semibold'}`}
+                  {/* Mail Dropdown Menu */}
+                  {showMailDropdown && (
+                    <div className="absolute right-0 mt-3 w-[88vw] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-indigo-400" />
+                          <span className="font-extrabold text-xs">Messages & e-Receipt Logs</span>
+                        </div>
+                        {unreadMailCount > 0 && (
+                          <button
+                            onClick={handleMarkMailsRead}
+                            className="text-[10px] font-extrabold text-indigo-300 hover:text-white transition"
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-extrabold text-slate-900 text-xs">{m.sender}</span>
-                              <span className="text-[10px] text-slate-400 font-medium">{m.time}</span>
-                            </div>
-                            <p className="font-bold text-slate-800 text-[11px] truncate">{m.subject}</p>
-                            <p className="text-slate-500 text-[11px] leading-tight line-clamp-2">{m.preview}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="p-3 bg-slate-50 text-center border-t border-slate-100 text-[11px] text-slate-500 font-bold">
-                      Automated Bursary e-Mail Dispatch Active
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Notification Bell Button */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowNotifDropdown(prev => !prev);
-                    setShowMailDropdown(false);
-                  }}
-                  className={`p-2 rounded-full transition relative ${
-                    showNotifDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
-                  }`}
-                  title="System Notifications"
-                >
-                  <Bell className="w-4 h-4" />
-                  {unreadNotifCount > 0 && (
-                    <span className="min-w-4 h-4 px-1 rounded-full bg-violet-600 text-white font-extrabold text-[9px] flex items-center justify-center absolute -top-1 -right-1 ring-2 ring-white">
-                      {unreadNotifCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notifications Dropdown Menu */}
-                {showNotifDropdown && (
-                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="p-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-violet-200" />
-                        <span className="font-extrabold text-xs">Notification Center</span>
+                            Mark all as read
+                          </button>
+                        )}
                       </div>
-                      {unreadNotifCount > 0 && (
-                        <button
-                          onClick={handleMarkNotifsRead}
-                          className="text-[10px] font-extrabold text-violet-200 hover:text-white transition"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
+                        {messages.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 font-medium">No messages or correspondence.</div>
+                        ) : (
+                          messages.map(m => (
+                            <div
+                              key={m.id}
+                              className={`p-3.5 space-y-1 transition ${m.read ? 'bg-white' : 'bg-indigo-50/40 font-semibold'}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-slate-900 text-xs">{m.sender}</span>
+                                <span className="text-[10px] text-slate-400 font-medium">{m.time}</span>
+                              </div>
+                              <p className="font-bold text-slate-800 text-[11px] truncate">{m.subject}</p>
+                              <p className="text-slate-500 text-[11px] leading-tight line-clamp-2">{m.preview}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-slate-50 text-center border-t border-slate-100 text-[11px] text-slate-500 font-bold">
+                        Automated Bursary e-Mail Dispatch Active
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                {/* Notification Bell Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowNotifDropdown(prev => !prev);
+                      setShowMailDropdown(false);
+                    }}
+                    className={`p-2 rounded-full transition relative ${
+                      showNotifDropdown ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                    }`}
+                    title="System Notifications"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadNotifCount > 0 && (
+                      <span className="min-w-4 h-4 px-1 rounded-full bg-violet-600 text-white font-extrabold text-[9px] flex items-center justify-center absolute -top-1 -right-1 ring-2 ring-white">
+                        {unreadNotifCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Notifications Dropdown Menu */}
+                  {showNotifDropdown && (
+                    <div className="absolute right-0 mt-3 w-[88vw] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="p-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-violet-200" />
+                          <span className="font-extrabold text-xs">Notification Center</span>
+                        </div>
+                        {unreadNotifCount > 0 && (
+                          <button
+                            onClick={handleMarkNotifsRead}
+                            className="text-[10px] font-extrabold text-violet-200 hover:text-white transition"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
 
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
                       {notifications.length === 0 ? (
@@ -250,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
             {/* Current User Info Card */}
-            <div className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/60 transition cursor-pointer">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-50 hover:bg-slate-100/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-200/60 transition cursor-pointer shrink-0">
               <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm shrink-0">
                 {currentUser.full_name.charAt(0)}
               </div>

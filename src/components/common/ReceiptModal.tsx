@@ -95,8 +95,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Verified Stamp Badge */}
-              <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/40 rounded-2xl px-4 py-2 text-right shrink-0 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/30">
+              <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/40 rounded-2xl px-3 sm:px-4 py-2 shrink-0 flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/30 shrink-0">
                   <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -109,7 +109,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
 
           {/* 4 Summary Grid Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             
             <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 space-y-1">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
@@ -180,8 +180,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
 
           {/* Table of Paid Fees */}
-          <div className="border border-slate-100 rounded-3xl overflow-hidden shadow-xs">
-            <table className="w-full text-left text-xs">
+          <div className="border border-slate-100 rounded-3xl overflow-hidden shadow-xs overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[500px] sm:min-w-0">
               <thead className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Fee Item Description</th>

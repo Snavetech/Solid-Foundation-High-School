@@ -79,7 +79,7 @@ export const SessionsPage: React.FC = () => {
             {sessions.map(s => (
               <div
                 key={s.id}
-                className={`p-4 rounded-xl border flex items-center justify-between transition ${
+                className={`p-4 rounded-xl border flex flex-col sm:flex-row gap-3 sm:items-center justify-between transition ${
                   s.is_current ? 'bg-emerald-50/70 border-emerald-300' : 'bg-slate-50 border-slate-200'
                 }`}
               >

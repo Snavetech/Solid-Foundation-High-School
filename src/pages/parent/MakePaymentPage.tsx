@@ -70,12 +70,12 @@ export const MakePaymentPage: React.FC = () => {
       <form onSubmit={handleOpenPaystackGateway} className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-6">
         
         {/* Outstanding Balance Banner */}
-        <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 p-6 rounded-3xl text-white flex items-center justify-between shadow-lg shadow-violet-500/15">
+        <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 p-6 rounded-3xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-violet-500/15">
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-100 block">CURRENT TERM BALANCE OWED</span>
             <span className="text-3xl font-black text-white">₦{summary.balance_owed.toLocaleString('en-NG')}</span>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <span className="text-[10px] uppercase font-bold text-indigo-100 block">ACADEMIC TERM</span>
             <span className="text-xs font-bold text-white">{summary.session_term.session} ({summary.session_term.term})</span>
           </div>
@@ -87,7 +87,7 @@ export const MakePaymentPage: React.FC = () => {
             Select Payment Option
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setPaymentOption('full')}

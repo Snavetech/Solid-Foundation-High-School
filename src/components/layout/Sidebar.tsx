@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, mobileOpen, onCloseMobil
             onClick={onCloseMobileMenu}
           />
           {/* Mobile Drawer */}
-          <aside className="relative w-64 max-w-[80vw] bg-white h-full border-r border-slate-100 shadow-2xl z-10 no-print animate-in slide-in-from-left duration-200">
+          <aside className="relative w-64 max-w-[85vw] bg-white h-full border-r border-slate-100 shadow-2xl z-10 no-print animate-in slide-in-from-left duration-200 overflow-y-auto">
             {sidebarContent}
           </aside>
         </div>

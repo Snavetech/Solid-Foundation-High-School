@@ -98,39 +98,41 @@ export const ReportsPage: React.FC = () => {
       {/* TAB 1: Collection Report */}
       {activeTab === 'collection' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="font-extrabold text-base text-slate-900">Termly Fee Collections by Class</h3>
             <button
               onClick={handleExportCollectionCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs shadow-md transition"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs shadow-md transition shrink-0"
             >
               <Download className="w-4 h-4" /> Download Collection CSV
             </button>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">Class Division</th>
-                  <th className="py-3.5 px-4 text-center">Students</th>
-                  <th className="py-3.5 px-4 text-right">Expected Total</th>
-                  <th className="py-3.5 px-4 text-right">Collected Amount</th>
-                  <th className="py-3.5 px-4 text-right">Outstanding Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {metrics.classBreakdown.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{row.class_name}</td>
-                    <td className="py-3.5 px-4 text-center font-semibold text-slate-600">{row.student_count}</td>
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-900">₦{row.expected.toLocaleString('en-NG')}</td>
-                    <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₦{row.collected.toLocaleString('en-NG')}</td>
-                    <td className="py-3.5 px-4 text-right font-extrabold text-amber-700">₦{row.outstanding.toLocaleString('en-NG')}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[550px]">
+                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-4">Class Division</th>
+                    <th className="py-3.5 px-4 text-center">Students</th>
+                    <th className="py-3.5 px-4 text-right">Expected Total</th>
+                    <th className="py-3.5 px-4 text-right">Collected Amount</th>
+                    <th className="py-3.5 px-4 text-right">Outstanding Balance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {metrics.classBreakdown.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">{row.class_name}</td>
+                      <td className="py-3.5 px-4 text-center font-semibold text-slate-600">{row.student_count}</td>
+                      <td className="py-3.5 px-4 text-right font-bold text-slate-900">₦{row.expected.toLocaleString('en-NG')}</td>
+                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₦{row.collected.toLocaleString('en-NG')}</td>
+                      <td className="py-3.5 px-4 text-right font-extrabold text-amber-700">₦{row.outstanding.toLocaleString('en-NG')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -138,55 +140,57 @@ export const ReportsPage: React.FC = () => {
       {/* TAB 2: Defaulters Report */}
       {activeTab === 'defaulters' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="font-extrabold text-base text-slate-900">Defaulters List (Students with Fee Balances)</h3>
             <button
               onClick={handleExportDefaultersCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs shadow-md transition"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs shadow-md transition shrink-0"
             >
               <Download className="w-4 h-4" /> Download Defaulters List (CSV)
             </button>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">Student</th>
-                  <th className="py-3.5 px-4">Class</th>
-                  <th className="py-3.5 px-4">Guardian Contact</th>
-                  <th className="py-3.5 px-4 text-right">Total Fees</th>
-                  <th className="py-3.5 px-4 text-right">Amount Paid</th>
-                  <th className="py-3.5 px-4 text-right">Balance Owed</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {defaultersList.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[650px]">
+                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-slate-400">
-                      Great news! All active students have fully settled fees for this term.
-                    </td>
+                    <th className="py-3.5 px-4">Student</th>
+                    <th className="py-3.5 px-4">Class</th>
+                    <th className="py-3.5 px-4">Guardian Contact</th>
+                    <th className="py-3.5 px-4 text-right">Total Fees</th>
+                    <th className="py-3.5 px-4 text-right">Amount Paid</th>
+                    <th className="py-3.5 px-4 text-right">Balance Owed</th>
                   </tr>
-                ) : (
-                  defaultersList.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                        {item.student.full_name}
-                        <span className="block text-[11px] font-normal text-slate-400">{item.student.admission_no}</span>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {defaultersList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-8 text-slate-400">
+                        Great news! All active students have fully settled fees for this term.
                       </td>
-                      <td className="py-3.5 px-4">{item.student.school_class?.name} {item.student.school_class?.arm}</td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-slate-800">{item.student.guardian?.full_name}</span>
-                        <span className="block text-[11px] text-slate-400">{item.student.guardian?.phone}</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900">₦{item.summary?.total_fees_due.toLocaleString('en-NG')}</td>
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₦{item.summary?.total_paid.toLocaleString('en-NG')}</td>
-                      <td className="py-3.5 px-4 text-right font-extrabold text-amber-700 text-sm">₦{item.summary?.balance_owed.toLocaleString('en-NG')}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    defaultersList.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/80 transition">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {item.student.full_name}
+                          <span className="block text-[11px] font-normal text-slate-400">{item.student.admission_no}</span>
+                        </td>
+                        <td className="py-3.5 px-4">{item.student.school_class?.name} {item.student.school_class?.arm}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-semibold text-slate-800">{item.student.guardian?.full_name}</span>
+                          <span className="block text-[11px] text-slate-400">{item.student.guardian?.phone}</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-slate-900">₦{item.summary?.total_fees_due.toLocaleString('en-NG')}</td>
+                        <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₦{item.summary?.total_paid.toLocaleString('en-NG')}</td>
+                        <td className="py-3.5 px-4 text-right font-extrabold text-amber-700 text-sm">₦{item.summary?.balance_owed.toLocaleString('en-NG')}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

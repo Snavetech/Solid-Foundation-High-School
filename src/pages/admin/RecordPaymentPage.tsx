@@ -137,12 +137,12 @@ export const RecordPaymentPage: React.FC = () => {
 
         {/* Selected Student Ledger Info Box */}
         {studentSummary && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between text-xs">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row gap-2 sm:items-center justify-between text-xs">
             <div>
               <span className="font-bold text-emerald-900 block">{studentSummary.student.full_name}</span>
               <span className="text-emerald-700">Total Billed: ₦{studentSummary.total_fees_due.toLocaleString('en-NG')} | Paid so far: ₦{studentSummary.total_paid.toLocaleString('en-NG')}</span>
             </div>
-            <div className="text-right">
+            <div className="sm:text-right">
               <span className="text-[10px] font-bold text-emerald-800 uppercase block">Outstanding Balance</span>
               <span className="font-extrabold text-amber-700 text-sm">₦{studentSummary.balance_owed.toLocaleString('en-NG')}</span>
             </div>

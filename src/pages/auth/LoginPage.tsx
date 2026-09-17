@@ -64,22 +64,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f3f9] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-[#f0f3f9] flex flex-col justify-center py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8 relative overflow-hidden">
       
       {/* Decorative Gradients */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="max-w-md mx-auto w-full space-y-6 relative z-10">
+      <div className="max-w-md mx-auto w-full space-y-5 sm:space-y-6 relative z-10">
         
         {/* School Branding Header */}
         <div className="text-center space-y-2">
           <img
             src={SCHOOL_INFO.logo}
             alt="SFCHS Logo"
-            className="w-20 h-20 object-contain rounded-2xl mx-auto shadow-xl bg-white p-1 border border-slate-100 mb-1"
+            className="w-16 sm:w-20 h-16 sm:h-20 object-contain rounded-2xl mx-auto shadow-xl bg-white p-1 border border-slate-100 mb-1"
           />
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
             {SCHOOL_INFO.name}
           </h1>
           <p className="text-xs font-bold text-violet-600 italic">
@@ -91,10 +91,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* Form Card */}
-        <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-100 space-y-5">
+        <div className="bg-white py-6 sm:py-8 px-4 sm:px-10 shadow-xl shadow-slate-200/50 rounded-2xl sm:rounded-3xl border border-slate-100 space-y-5">
           
           <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
               <LogIn className="w-5 h-5 text-violet-600" />
               Portal Sign In
             </h2>
@@ -168,7 +168,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               Quick Demo Login Accounts
             </span>
 
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => handleSelectPreset('SFHS/2026/001', 'student123')}
