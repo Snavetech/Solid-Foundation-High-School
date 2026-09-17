@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { feeService } from '../../services/feeService';
 import { Guardian } from '../../types/database';
 import { Users, Search, Plus, Phone, Mail, GraduationCap, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import emailjs from '@emailjs/browser';
 
 export const GuardiansListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,9 +17,12 @@ export const GuardiansListPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [relationship, setRelationship] = useState('Father');
 
+  const [guardians, setGuardians] = useState(feeService.getGuardians());
+  const [students, setStudents] = useState(feeService.getStudents());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
   const classes = feeService.getClasses();
-  const guardians = feeService.getGuardians();
-  const students = feeService.getStudents();
 
   // Compute guardian financial summaries and linked wards info
   const guardianSummaries = useMemo(() => {
@@ -50,19 +54,20 @@ export const GuardiansListPage: React.FC = () => {
     });
   }, [guardians, students]);
 
-  // Filter & Sort Guardians
   const filteredAndSorted = useMemo(() => {
-    return guardianSummaries.filter(item => {
-      const g = item.guardian;
-      const matchesSearch = g.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (g.phone && g.phone.includes(searchTerm)) ||
-                            (g.email && g.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    return guardianSummaries.filter(({ guardian, wards, isDefaulting }) => {
+      const matchesSearch =
+        guardian.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (guardian.phone && guardian.phone.includes(searchTerm)) ||
+        (guardian.email && guardian.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        wards.some(w => w.student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || (w.student.admission_no && w.student.admission_no.toLowerCase().includes(searchTerm.toLowerCase())));
 
-      const matchesClass = !classFilter || item.wards.some(w => w.student.class_id === classFilter);
+      const matchesClass = !classFilter || wards.some(w => w.student.class_id === classFilter);
 
-      const matchesStatus = !statusFilter || statusFilter === 'all' ||
-                            (statusFilter === 'defaulting' && item.isDefaulting) ||
-                            (statusFilter === 'paid' && !item.isDefaulting);
+      const matchesStatus =
+        statusFilter === 'all' ? true :
+        statusFilter === 'defaulting' ? isDefaulting :
+        !isDefaulting && wards.length > 0;
 
       return matchesSearch && matchesClass && matchesStatus;
     }).sort((a, b) => {
@@ -77,20 +82,73 @@ export const GuardiansListPage: React.FC = () => {
   const defaultingCount = guardianSummaries.filter(g => g.isDefaulting).length;
   const paidCount = guardianSummaries.filter(g => !g.isDefaulting && g.numChildren > 0).length;
 
-  const handleAddGuardian = (e: React.FormEvent) => {
+  const handleAddGuardian = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName) return;
+    setIsSubmitting(true);
 
     feeService.addGuardian(fullName, phone, email, relationship);
+
+    // If email is provided, send real EmailJS email
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    let emailSent = false;
+    if (email && serviceId && templateId && publicKey) {
+      try {
+        await emailjs.send(
+          serviceId,
+          templateId,
+          {
+            to_email: email.trim(),
+            email: email.trim(),
+            parent_name: fullName.trim(),
+            student_name: 'Student(s) Enrolled at Solid Foundation High School',
+            admission_no: 'Linked via School Bursary',
+            default_password: 'parent123',
+            portal_url: window.location.origin + '/login',
+            login_url: window.location.origin + '/login'
+          },
+          publicKey
+        );
+        emailSent = true;
+      } catch (err) {
+        console.warn('EmailJS dispatch failed from Guardians page:', err);
+      }
+    }
+
+    setGuardians(feeService.getGuardians());
+    setStudents(feeService.getStudents());
     setShowAddModal(false);
+    setIsSubmitting(false);
     setFullName('');
     setPhone('');
     setEmail('');
     setRelationship('Father');
+
+    setSuccessToast(
+      emailSent
+        ? `Guardian "${fullName}" created & real welcome email sent to ${email}!`
+        : `Guardian "${fullName}" added successfully!`
+    );
+    setTimeout(() => setSuccessToast(null), 5000);
   };
 
   return (
     <div className="space-y-6">
+
+      {successToast && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center justify-between shadow-sm">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            {successToast}
+          </span>
+          <button onClick={() => setSuccessToast(null)} className="text-emerald-500 hover:text-emerald-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -327,9 +385,10 @@ export const GuardiansListPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-md"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-md transition disabled:opacity-60"
                 >
-                  Save Guardian
+                  {isSubmitting ? 'Saving & Dispatching Email...' : 'Save Guardian'}
                 </button>
               </div>
             </form>

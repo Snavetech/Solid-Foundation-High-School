@@ -417,7 +417,14 @@ class FeeService {
     return this.guardians.find(g => g.profile_id === profileId);
   }
 
-  addGuardian(full_name: string, phone?: string, email?: string, relationship?: string): Guardian {
+  addGuardian(
+    full_name: string,
+    phone?: string,
+    email?: string,
+    relationship?: string,
+    student_name?: string,
+    admission_no?: string
+  ): Guardian {
     const newGuardian: Guardian = {
       id: `g-${Date.now()}`,
       full_name,
@@ -442,6 +449,34 @@ class FeeService {
       };
       this.profiles.push(parentProfile);
       saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+
+      // Dispatch automated Welcome & Registration Confirmation Email
+      const wardInfo = student_name
+        ? `linked to your ward ${student_name}${admission_no ? ` (${admission_no})` : ''}`
+        : 'at Solid Foundation High School';
+
+      const welcomeMsg: SystemMessage = {
+        id: `m-reg-${Date.now()}`,
+        sender: 'Solid Foundation HS Bursary & Admissions',
+        subject: `Welcome to SFHS Portal - Registration Confirmed (${email})`,
+        preview: `Dear ${full_name}, your parent guardian account ${wardInfo} has been successfully activated. Portal Login: ${email} | Default Password: parent123. You can now access your ward fee records and digital receipts.`,
+        time: 'Just now',
+        read: false
+      };
+
+      const welcomeNotif: SystemNotification = {
+        id: `n-reg-${Date.now()}`,
+        title: 'Guardian Registration Confirmed',
+        body: `Automated confirmation email & portal credentials dispatched to ${email}.`,
+        time: 'Just now',
+        read: false,
+        type: 'system'
+      };
+
+      this.messages.unshift(welcomeMsg);
+      this.notifications.unshift(welcomeNotif);
+      saveStorage(STORAGE_KEYS.MESSAGES, this.messages);
+      saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
     }
 
     return newGuardian;
@@ -470,9 +505,67 @@ class FeeService {
     return this.getStudents().filter(s => s.guardian_id === guardianId);
   }
 
+  isAdmissionNumberTaken(admissionNo: string, excludeStudentId?: string): boolean {
+    const clean = admissionNo.trim().toLowerCase();
+    return this.students.some(s => s.admission_no.trim().toLowerCase() === clean && s.id !== excludeStudentId);
+  }
+
+  generateNextAdmissionNumber(currentValue?: string): string {
+    const currentYear = new Date().getFullYear();
+    const regex = /SFHS\/\d{4}\/(\d+)/i;
+    let maxNumber = 0;
+
+    // If an admission number already exists in input, advance from it
+    if (currentValue) {
+      const match = currentValue.match(regex);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          maxNumber = parsed;
+        }
+      }
+    }
+
+    // If no valid base, scan all enrolled students to find the highest number
+    if (maxNumber === 0) {
+      this.students.forEach(s => {
+        const match = s.admission_no.match(regex);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
+
+      if (maxNumber === 0) {
+        maxNumber = this.students.length;
+      }
+    }
+
+    let nextNumber = maxNumber + 1;
+    let candidate = `SFHS/${currentYear}/${String(nextNumber).padStart(3, '0')}`;
+
+    // Guarantee uniqueness against any edge case collisions
+    while (this.isAdmissionNumberTaken(candidate)) {
+      nextNumber++;
+      candidate = `SFHS/${currentYear}/${String(nextNumber).padStart(3, '0')}`;
+    }
+
+    return candidate;
+  }
+
   addStudent(studentData: Omit<Student, 'id' | 'created_at'>): Student {
+    let finalAdmissionNo = studentData.admission_no?.trim();
+
+    // Enforce unique admission number
+    if (!finalAdmissionNo || this.isAdmissionNumberTaken(finalAdmissionNo)) {
+      finalAdmissionNo = this.generateNextAdmissionNumber();
+    }
+
     const newStudent: Student = {
       ...studentData,
+      admission_no: finalAdmissionNo,
       id: `s-${Date.now()}`,
       created_at: new Date().toISOString()
     };

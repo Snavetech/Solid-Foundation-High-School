@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { UserRole } from '../../types/database';
-import { UserCheck, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { UserCheck, ArrowRight, ArrowLeft, CheckCircle2, Mail, ShieldCheck, Key } from 'lucide-react';
+import emailjs from '@emailjs/browser';
 
 interface RegisterPageProps {
   onLoginSuccess: (role: UserRole) => void;
@@ -18,10 +19,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
   const [surname, setSurname] = useState('');
   const [relationship, setRelationship] = useState('Father');
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<'sent' | 'fallback' | 'error' | null>(null);
+  const [registeredInfo, setRegisteredInfo] = useState<{
+    fullName: string;
+    email: string;
+    studentName: string;
+    admissionNo: string;
+  } | null>(null);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -41,20 +48,65 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
       return;
     }
 
-    // Match found! Create guardian record & link
-    setTimeout(() => {
-      const guardian = feeService.addGuardian(fullName, phone, email, relationship);
-      feeService.updateStudent(match.id, { guardian_id: guardian.id });
+    // Match found! Create guardian record & link in bursary database
+    const guardian = feeService.addGuardian(
+      fullName,
+      phone,
+      email,
+      relationship,
+      match.full_name,
+      match.admission_no
+    );
+    feeService.updateStudent(match.id, { guardian_id: guardian.id });
 
-      const user = feeService.switchDemoUser('parent');
-      setLoading(false);
-      setSuccessMsg(`Successfully verified student ${match.full_name}! Account created.`);
-      
-      setTimeout(() => {
-        onLoginSuccess('parent');
-        navigate('/parent/dashboard');
-      }, 1000);
-    }, 800);
+    // Send Real Email via EmailJS using environment keys
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    if (serviceId && templateId && publicKey) {
+      try {
+        const res = await emailjs.send(
+          serviceId,
+          templateId,
+          {
+            to_email: email.trim(),
+            email: email.trim(),
+            user_email: email.trim(),
+            recipient_email: email.trim(),
+            parent_name: fullName.trim(),
+            name: fullName.trim(),
+            student_name: match.full_name,
+            admission_no: match.admission_no,
+            default_password: 'parent123',
+            portal_url: window.location.origin + '/login',
+            login_url: window.location.origin + '/login'
+          },
+          publicKey
+        );
+        console.log('EmailJS response:', res.status, res.text);
+        setEmailStatus('sent');
+      } catch (emailErr: any) {
+        console.warn('Real email dispatch failed:', emailErr);
+        setEmailStatus('error');
+      }
+    } else {
+      setEmailStatus('fallback');
+    }
+
+    feeService.switchDemoUser('parent');
+    setLoading(false);
+    setRegisteredInfo({
+      fullName,
+      email,
+      studentName: match.full_name,
+      admissionNo: match.admission_no
+    });
+  };
+
+  const handleProceedToDashboard = () => {
+    onLoginSuccess('parent');
+    navigate('/parent/dashboard');
   };
 
   return (
@@ -63,8 +115,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500 text-white text-2xl font-extrabold shadow-lg shadow-amber-500/20 mb-2">
-            {SCHOOL_INFO.logo}
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-lg shadow-amber-500/10 mb-3 p-2">
+            <img src={SCHOOL_INFO.logo} alt="SFCHS Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-black text-white tracking-tight">
             Parent Self-Registration
@@ -76,12 +128,69 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
 
         <div className="mt-6 bg-slate-900/90 backdrop-blur-md py-8 px-6 shadow-2xl rounded-2xl border border-slate-800 sm:px-10">
           
-          {successMsg ? (
-            <div className="text-center py-6 space-y-4">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
-              <h3 className="text-lg font-bold text-white">Registration Verified!</h3>
-              <p className="text-xs text-slate-300">{successMsg}</p>
-              <p className="text-[11px] text-amber-400">Redirecting to Parent Dashboard...</p>
+          {registeredInfo ? (
+            <div className="space-y-4">
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+                  <Mail className="w-7 h-7 animate-pulse" />
+                </div>
+                <h3 className="text-lg font-black text-white">Registration Verified!</h3>
+                <p className="text-xs text-slate-300">
+                  Account verified for ward <span className="text-amber-400 font-bold">{registeredInfo.studentName}</span> ({registeredInfo.admissionNo}).
+                </p>
+              </div>
+
+              {/* Email Envelope / Status Card */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px]">
+                  <span className="text-slate-400 font-semibold">Delivery Status:</span>
+                  {emailStatus === 'sent' ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Sent to Inbox (EmailJS)
+                    </span>
+                  ) : emailStatus === 'error' ? (
+                    <span className="inline-flex items-center gap-1 text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Stored in Portal Mailbox
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Dispatched to Mailbox
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Recipient Email:</span>
+                    <span className="text-white font-medium">{registeredInfo.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Portal Login:</span>
+                    <span className="text-amber-400 font-mono font-bold">{registeredInfo.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Default Password:</span>
+                    <span className="text-emerald-400 font-mono font-bold">parent123</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-900/40 text-[11px] text-indigo-300 flex items-start gap-2">
+                  <Mail className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" />
+                  <span>
+                    {emailStatus === 'sent'
+                      ? `A real email has been sent to ${registeredInfo.email} and also saved in your Portal Mailbox.`
+                      : 'A copy of your credentials has been stored in your Portal Mailbox (top navigation bar).'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleProceedToDashboard}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 shadow-lg shadow-amber-600/25 transition"
+              >
+                Proceed to Parent Dashboard
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           ) : (
             <form className="space-y-4" onSubmit={handleRegister}>

@@ -202,16 +202,43 @@ export const RecordPaymentPage: React.FC = () => {
               required
               min={minInstallmentAmount > 0 ? minInstallmentAmount : "100"}
               max={studentSummary?.balance_owed}
-              step="500"
+              step="any"
               placeholder={minInstallmentAmount > 0 ? `Min 20%: ₦${minInstallmentAmount.toLocaleString('en-NG')}` : "e.g. 50000"}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-extrabold text-slate-900 focus:ring-2 focus:ring-emerald-500"
             />
             {studentSummary && studentSummary.balance_owed > 0 && (
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">
-                Policy: Installments must be at least 20% (₦{minInstallmentAmount.toLocaleString('en-NG')}) of balance owed (₦{studentSummary.balance_owed.toLocaleString('en-NG')}).
-              </p>
+              <>
+                <div className="flex flex-wrap gap-1.5 pt-1.5">
+                  {[
+                    { label: 'Min 20%', pct: 0.20 },
+                    { label: '50%', pct: 0.50 },
+                    { label: '75%', pct: 0.75 },
+                    { label: '100% Full', pct: 1.0 },
+                  ].map(preset => {
+                    const presetVal = Math.ceil(studentSummary.balance_owed * preset.pct);
+                    const isSelected = parseFloat(amount) === presetVal;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setAmount(presetVal.toString())}
+                        className={`text-[11px] px-2 py-0.5 rounded-lg font-bold border transition ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                        }`}
+                      >
+                        {preset.label} (₦{presetVal.toLocaleString('en-NG')})
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">
+                  Policy: Installments can be any amount of at least 20% (₦{minInstallmentAmount.toLocaleString('en-NG')}) up to full balance owed (₦{studentSummary.balance_owed.toLocaleString('en-NG')}).
+                </p>
+              </>
             )}
           </div>
 

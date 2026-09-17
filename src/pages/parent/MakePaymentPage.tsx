@@ -135,16 +135,44 @@ export const MakePaymentPage: React.FC = () => {
               required
               min={minInstallmentAmount}
               max={summary.balance_owed}
-              step="500"
+              step="any"
               placeholder={`Minimum 20%: ₦${minInstallmentAmount.toLocaleString('en-NG')}`}
               value={customAmount}
               onChange={(e) => setCustomAmount(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl font-black text-slate-900 text-base focus:ring-2 focus:ring-violet-500"
             />
 
+            {/* Quick Percentage Presets */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {[
+                { label: 'Min 20%', pct: 0.20 },
+                { label: '30%', pct: 0.30 },
+                { label: '40%', pct: 0.40 },
+                { label: '50%', pct: 0.50 },
+                { label: '75%', pct: 0.75 },
+              ].map(preset => {
+                const presetVal = Math.ceil(summary.balance_owed * preset.pct);
+                const isSelected = parseFloat(customAmount) === presetVal;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setCustomAmount(presetVal.toString())}
+                    className={`text-xs px-2.5 py-1 rounded-lg font-bold border transition ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50'
+                    }`}
+                  >
+                    {preset.label} (₦{presetVal.toLocaleString('en-NG')})
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 font-medium flex items-center gap-1.5">
               <Info className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>To avoid irregular micro-payments, installment payments must be at least 20% of your current balance owed.</span>
+              <span>To avoid irregular micro-payments, installment payments can be any amount of at least 20% of your current balance owed.</span>
             </div>
 
             <p className="text-[11px] text-slate-500 font-medium">

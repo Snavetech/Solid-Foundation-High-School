@@ -111,7 +111,7 @@ export const FeeStructuresPage: React.FC = () => {
                 type="number"
                 required
                 min="0"
-                step="500"
+                step="any"
                 placeholder="e.g. 50000"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}

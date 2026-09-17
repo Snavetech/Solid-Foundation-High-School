@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { UserRole } from '../../types/database';
@@ -208,9 +208,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* Provision Notice */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-center text-[11px] text-slate-500 font-medium">
-            <Lock className="w-3.5 h-3.5 text-slate-400 inline mr-1" />
-            Self-registration is disabled. Accounts are provisioned by the School Bursary or Admin.
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-center text-[11px] text-slate-500 font-medium space-y-1">
+            <div className="flex items-center justify-center gap-1 text-slate-700 font-bold">
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              Official School Provisioning
+            </div>
+            <p>
+              Student and parent accounts are provisioned upon admission by the School Bursary. Login credentials are automatically dispatched to the registered parent email address.
+            </p>
           </div>
 
         </div>
