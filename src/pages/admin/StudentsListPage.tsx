@@ -27,6 +27,7 @@ export const StudentsListPage: React.FC = () => {
   const [newGuardianPhone, setNewGuardianPhone] = useState('');
   const [newGuardianEmail, setNewGuardianEmail] = useState('');
   const [newGuardianRel, setNewGuardianRel] = useState('Father');
+  const [overrideEmail, setOverrideEmail] = useState('');
 
   const [classes, setClasses] = useState(feeService.getClasses());
   const [guardians, setGuardians] = useState(feeService.getGuardians());
@@ -113,6 +114,11 @@ export const StudentsListPage: React.FC = () => {
       }
     }
 
+    // If an explicit override/test email was entered, use it for dispatch:
+    if (overrideEmail.trim()) {
+      guardianEmailToSend = overrideEmail.trim();
+    }
+
     if (!finalGuardianId) {
       setIsSubmitting(false);
       return;
@@ -155,6 +161,7 @@ export const StudentsListPage: React.FC = () => {
     setFullName('');
     setClassId('');
     setGuardianId('');
+    setOverrideEmail('');
     setNewGuardianName('');
     setNewGuardianPhone('');
     setNewGuardianEmail('');
@@ -411,28 +418,55 @@ export const StudentsListPage: React.FC = () => {
                 {guardianMode === 'existing' ? (
                   <div className="space-y-1.5">
                     {selectedGuardian && !isGuardianDropdownOpen ? (
-                      <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            <Users className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 text-xs">{selectedGuardian.full_name}</div>
-                            <div className="text-[10px] text-slate-500">
-                              {selectedGuardian.phone || 'No phone'} &bull; {selectedGuardian.email || 'No email'} &bull; <span className="italic">{selectedGuardian.relationship || 'Guardian'}</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                              <Users className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900 text-xs">{selectedGuardian.full_name}</div>
+                              <div className="text-[10px] text-slate-500">
+                                {selectedGuardian.phone || 'No phone'} &bull; {selectedGuardian.email || 'No email'} &bull; <span className="italic">{selectedGuardian.relationship || 'Guardian'}</span>
+                              </div>
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsGuardianDropdownOpen(true);
+                              setGuardianSearch('');
+                            }}
+                            className="text-xs font-bold text-blue-700 hover:text-blue-800 bg-white border border-blue-200 px-2.5 py-1 rounded-lg shadow-2xs shrink-0"
+                          >
+                            Change
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsGuardianDropdownOpen(true);
-                            setGuardianSearch('');
-                          }}
-                          className="text-xs font-bold text-blue-700 hover:text-blue-800 bg-white border border-blue-200 px-2.5 py-1 rounded-lg shadow-2xs shrink-0"
-                        >
-                          Change
-                        </button>
+
+                        {/* Direct Email Destination & Test Delivery Box */}
+                        <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                              Welcome Email Destination:
+                            </span>
+                            <span className="font-mono text-indigo-700 font-bold truncate max-w-[200px]">
+                              {overrideEmail.trim() || selectedGuardian.email || 'No email on record'}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                              Testing email delivery? Enter your personal email address here to receive the credentials:
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="Enter your email to receive live test credentials..."
+                              value={overrideEmail}
+                              onChange={(e) => setOverrideEmail(e.target.value)}
+                              className="w-full px-2.5 py-1.5 bg-white border border-indigo-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
+                            />
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-1">
@@ -530,10 +564,11 @@ export const StudentsListPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block font-medium text-slate-600 mb-0.5 text-[11px]">Parent Email (for Welcome Mail)</label>
+                        <label className="block font-medium text-slate-600 mb-0.5 text-[11px]">Parent Email (for Welcome Mail) *</label>
                         <input
                           type="email"
-                          placeholder="parent@email.com"
+                          required
+                          placeholder="Enter your email to receive credentials"
                           value={newGuardianEmail}
                           onChange={(e) => setNewGuardianEmail(e.target.value)}
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"

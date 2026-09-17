@@ -8,6 +8,15 @@ export const EMAILJS_CONFIG = {
   publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M'
 };
 
+// Explicitly initialize EmailJS with the public key
+try {
+  if (typeof window !== 'undefined' && EMAILJS_CONFIG.publicKey) {
+    emailjs.init(EMAILJS_CONFIG.publicKey);
+  }
+} catch (e) {
+  console.warn('[EmailService] Initialization notice:', e);
+}
+
 export interface EmailResult {
   success: boolean;
   message?: string;
