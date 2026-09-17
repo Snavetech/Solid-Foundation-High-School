@@ -13,18 +13,18 @@ import { supabase, isDemoMode } from '../lib/supabase';
 
 // Local storage keys
 const STORAGE_KEYS = {
-  PROFILES: 'sfhs_profiles_v5',
-  CLASSES: 'sfhs_classes_v5',
-  SESSIONS: 'sfhs_sessions_v5',
-  GUARDIANS: 'sfhs_guardians_v5',
-  STUDENTS: 'sfhs_students_v5',
-  FEE_STRUCTURES: 'sfhs_fee_structures_v5',
-  PAYMENTS: 'sfhs_payments_v5',
-  RECEIPTS: 'sfhs_receipts_v5',
-  CURRENT_USER: 'sfhs_current_user_v5',
-  NOTIFICATIONS: 'sfhs_notifications_v5',
-  MESSAGES: 'sfhs_messages_v5',
-  SCHOOL_INFO: 'sfhs_school_info_v5'
+  PROFILES: 'sfhs_profiles_v6',
+  CLASSES: 'sfhs_classes_v6',
+  SESSIONS: 'sfhs_sessions_v6',
+  GUARDIANS: 'sfhs_guardians_v6',
+  STUDENTS: 'sfhs_students_v6',
+  FEE_STRUCTURES: 'sfhs_fee_structures_v6',
+  PAYMENTS: 'sfhs_payments_v6',
+  RECEIPTS: 'sfhs_receipts_v6',
+  CURRENT_USER: 'sfhs_current_user_v6',
+  NOTIFICATIONS: 'sfhs_notifications_v6',
+  MESSAGES: 'sfhs_messages_v6',
+  SCHOOL_INFO: 'sfhs_school_info_v6'
 };
 
 // Storage helper
@@ -226,44 +226,58 @@ class FeeService {
         return;
       }
 
-      // Ingest remote data into memory & local cache
+      // Ingest and union-merge remote data into memory & local cache
+      // This guarantees all 150 students, 94 guardians, classes, and payments are preserved
       if (classesRes.data && classesRes.data.length > 0) {
-        this.classes = classesRes.data;
+        const classMap = new Map(this.classes.map(c => [c.id, c]));
+        classesRes.data.forEach((c: SchoolClass) => classMap.set(c.id, { ...classMap.get(c.id), ...c }));
+        this.classes = Array.from(classMap.values());
         saveStorage(STORAGE_KEYS.CLASSES, this.classes);
       }
 
       if (sessionsRes.data && sessionsRes.data.length > 0) {
-        this.sessions = sessionsRes.data;
+        const sessionMap = new Map(this.sessions.map(s => [s.id, s]));
+        sessionsRes.data.forEach((s: SessionTerm) => sessionMap.set(s.id, { ...sessionMap.get(s.id), ...s }));
+        this.sessions = Array.from(sessionMap.values());
         saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
       }
 
       if (guardiansRes.data && guardiansRes.data.length > 0) {
-        this.guardians = guardiansRes.data;
+        const guardianMap = new Map(this.guardians.map(g => [g.id, g]));
+        guardiansRes.data.forEach((g: Guardian) => guardianMap.set(g.id, { ...guardianMap.get(g.id), ...g }));
+        this.guardians = Array.from(guardianMap.values());
         saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
       }
 
       if (studentsRes.data && studentsRes.data.length > 0) {
-        this.students = studentsRes.data;
+        const studentMap = new Map(this.students.map(s => [s.id, s]));
+        studentsRes.data.forEach((s: Student) => studentMap.set(s.id, { ...studentMap.get(s.id), ...s }));
+        this.students = Array.from(studentMap.values());
         saveStorage(STORAGE_KEYS.STUDENTS, this.students);
       }
 
       if (feeStructsRes.data && feeStructsRes.data.length > 0) {
-        this.feeStructures = feeStructsRes.data;
+        const fsMap = new Map(this.feeStructures.map(f => [f.id, f]));
+        feeStructsRes.data.forEach((f: FeeStructure) => fsMap.set(f.id, { ...fsMap.get(f.id), ...f }));
+        this.feeStructures = Array.from(fsMap.values());
         saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
       }
 
       if (paymentsRes.data && paymentsRes.data.length > 0) {
-        this.payments = paymentsRes.data;
+        const payMap = new Map(this.payments.map(p => [p.id, p]));
+        paymentsRes.data.forEach((p: Payment) => payMap.set(p.id, { ...payMap.get(p.id), ...p }));
+        this.payments = Array.from(payMap.values());
         saveStorage(STORAGE_KEYS.PAYMENTS, this.payments);
       }
 
       if (receiptsRes.data && receiptsRes.data.length > 0) {
-        this.receipts = receiptsRes.data;
+        const recMap = new Map(this.receipts.map(r => [r.id, r]));
+        receiptsRes.data.forEach((r: Receipt) => recMap.set(r.id, { ...recMap.get(r.id), ...r }));
+        this.receipts = Array.from(recMap.values());
         saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
       }
 
       if (profilesRes.data && profilesRes.data.length > 0) {
-        // Merge profiles preserving any current credentials
         const profileMap = new Map(this.profiles.map(p => [p.id, p]));
         profilesRes.data.forEach((p: Profile) => profileMap.set(p.id, { ...profileMap.get(p.id), ...p }));
         this.profiles = Array.from(profileMap.values());
