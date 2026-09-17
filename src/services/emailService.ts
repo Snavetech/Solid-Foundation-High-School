@@ -1,11 +1,38 @@
 import emailjs from '@emailjs/browser';
 
-// EmailJS Configuration with production fallbacks to ensure emails always send
-// even if environment variables are not manually set in Vercel project settings.
-export const EMAILJS_CONFIG = {
-  serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_9whclxh',
-  templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bpnxfea',
-  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M'
+const getInitialConfig = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('sfhs_emailjs_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          serviceId: parsed.serviceId || import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_9whclxh',
+          templateId: parsed.templateId || import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bpnxfea',
+          publicKey: parsed.publicKey || import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M',
+        };
+      }
+    } catch (e) {}
+  }
+  return {
+    serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_9whclxh',
+    templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bpnxfea',
+    publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M'
+  };
+};
+
+export const EMAILJS_CONFIG = getInitialConfig();
+
+export const updateEmailJSConfig = (serviceId: string, templateId: string, publicKey: string) => {
+  EMAILJS_CONFIG.serviceId = serviceId.trim();
+  EMAILJS_CONFIG.templateId = templateId.trim();
+  EMAILJS_CONFIG.publicKey = publicKey.trim();
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('sfhs_emailjs_config', JSON.stringify(EMAILJS_CONFIG));
+    try {
+      emailjs.init(EMAILJS_CONFIG.publicKey);
+    } catch (e) {}
+  }
 };
 
 // Explicitly initialize EmailJS with the public key
@@ -26,6 +53,20 @@ export interface EmailResult {
 export const emailService = {
   isConfigured(): boolean {
     return Boolean(EMAILJS_CONFIG.serviceId && EMAILJS_CONFIG.templateId && EMAILJS_CONFIG.publicKey);
+  },
+
+  getConfig() {
+    return { ...EMAILJS_CONFIG };
+  },
+
+  async sendTestEmail(toEmail: string): Promise<EmailResult> {
+    const trimmed = toEmail.trim();
+    if (!trimmed) return { success: false, error: 'Recipient email address is required.' };
+    return this.sendBursarCredentialsEmail({
+      full_name: 'School Administrator (Email Connection Test)',
+      email: trimmed,
+      password: 'password123'
+    });
   },
 
   /**

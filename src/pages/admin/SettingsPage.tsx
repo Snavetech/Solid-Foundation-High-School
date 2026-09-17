@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
-import { emailService } from '../../services/emailService';
+import { emailService, updateEmailJSConfig } from '../../services/emailService';
 import { Settings, ShieldCheck, KeyRound, Lock, User, GraduationCap, Mail, Phone, CheckCircle2, AlertCircle, Building2, Download, RefreshCw, Database, Sparkles, Send } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
@@ -142,6 +142,11 @@ export const SettingsPage: React.FC = () => {
         const bursar = feeService.getBursarProfile();
         return <BursarManagementCard initialBursar={bursar} />;
       })()}
+
+      {/* Super Admin Privileged Section: EmailJS Credentials & Live Dispatch Test */}
+      {currentUser.role === 'super_admin' && (
+        <EmailConfigurationCard />
+      )}
 
       {/* Super Admin Privileged Section: Database Backup & Factory Reset */}
       {currentUser.role === 'super_admin' && (
@@ -438,6 +443,185 @@ const BursarManagementCard: React.FC<BursarCardProps> = ({ initialBursar }) => {
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+/* EmailJS Credentials & Live Test Card for Super Admin */
+const EmailConfigurationCard: React.FC = () => {
+  const currentConfig = emailService.getConfig();
+  const [serviceId, setServiceId] = useState(currentConfig.serviceId);
+  const [templateId, setTemplateId] = useState(currentConfig.templateId);
+  const [publicKey, setPublicKey] = useState(currentConfig.publicKey);
+
+  const [testEmail, setTestEmail] = useState('skygraphics45@gmail.com');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; text: string } | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateEmailJSConfig(serviceId, templateId, publicKey);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 4000);
+  };
+
+  const handleSendTest = async () => {
+    if (!testEmail.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+
+    // Save active config first so test uses it immediately
+    updateEmailJSConfig(serviceId, templateId, publicKey);
+
+    const res = await emailService.sendTestEmail(testEmail.trim());
+    setTesting(false);
+    if (res.success) {
+      setTestResult({
+        success: true,
+        text: `Email dispatched successfully! Please check your inbox at ${testEmail} (and Spam/Junk folder).`
+      });
+    } else {
+      setTestResult({
+        success: false,
+        text: `EmailJS Error: ${res.error}`
+      });
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-5">
+      <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+            <Mail className="w-5 h-5 text-indigo-600" /> EmailJS Configuration & Live Test
+          </h3>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            Real-time credentials management and instant email delivery diagnostic tester
+          </p>
+        </div>
+        <span className="self-start sm:self-auto px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-indigo-200/60">
+          Super Admin Privileged
+        </span>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-semibold">
+          <div>
+            <label className="block text-slate-700 mb-1 font-bold">SERVICE ID *</label>
+            <input
+              type="text"
+              required
+              value={serviceId}
+              onChange={(e) => setServiceId(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/30"
+              placeholder="e.g. service_9whclxh"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 mb-1 font-bold">TEMPLATE ID *</label>
+            <input
+              type="text"
+              required
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/30"
+              placeholder="e.g. template_xxxxxxx"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 mb-1 font-bold">PUBLIC KEY *</label>
+            <input
+              type="text"
+              required
+              value={publicKey}
+              onChange={(e) => setPublicKey(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/30"
+              placeholder="e.g. w7Cte7CcydMY36F8M"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-2xl transition shadow-xs flex items-center gap-1.5"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Save Email Credentials</span>
+          </button>
+          {saveSuccess && (
+            <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-4 h-4" /> Saved successfully! Active across all registrations.
+            </span>
+          )}
+        </div>
+      </form>
+
+      {/* Live Email Test Box */}
+      <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <Send className="w-4 h-4 text-indigo-600" /> Live Email Delivery Diagnostic
+          </span>
+          <span className="text-[10px] text-slate-400 font-semibold">Test template validity instantly</span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="Enter destination email e.g. skygraphics45@gmail.com"
+            className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            type="button"
+            onClick={handleSendTest}
+            disabled={testing || !testEmail.trim()}
+            className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+          >
+            {testing ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Dispatching Test...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Send Test Email</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {testResult && (
+          <div className={`p-3 rounded-xl text-xs font-bold border flex items-start gap-2 ${
+            testResult.success
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
+          }`}>
+            {testResult.success ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            )}
+            <span>{testResult.text}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-2xl text-[11px] text-amber-900 space-y-1">
+        <div className="font-bold flex items-center gap-1 text-amber-950">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+          Where to find your Template ID:
+        </div>
+        <p>
+          Visit <a href="https://dashboard.emailjs.com/admin/templates" target="_blank" rel="noreferrer" className="font-bold underline text-indigo-700">https://dashboard.emailjs.com/admin/templates</a>. Your Template ID is displayed directly under your template's title (e.g., <code className="font-mono bg-amber-100/80 px-1 py-0.5 rounded font-bold">template_xxxxxxx</code>). If you recently created or renamed your template, copy and paste its ID above, click <strong>Save Email Credentials</strong>, and test with <strong>Send Test Email</strong>.
+        </p>
+      </div>
     </div>
   );
 };
