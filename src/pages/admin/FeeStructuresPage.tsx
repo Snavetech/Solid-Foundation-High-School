@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { FeeStructure } from '../../types/database';
 import { CreditCard, Plus, Trash2, Check, AlertCircle, Lock, ShieldCheck } from 'lucide-react';
@@ -10,6 +10,15 @@ export const FeeStructuresPage: React.FC = () => {
   const [feeStructures, setFeeStructures] = useState(feeService.getFeeStructures());
   const [selectedClassId, setSelectedClassId] = useState(feeService.getClasses()[0]?.id || '');
   const [selectedTermId, setSelectedTermId] = useState(feeService.getCurrentSession().id);
+
+  // Live real-time update
+  useEffect(() => {
+    const updateFeeStructures = () => {
+      setFeeStructures(feeService.getFeeStructures());
+    };
+    const unsubscribe = feeService.subscribe(updateFeeStructures);
+    return () => unsubscribe();
+  }, []);
 
   // Form State
   const [feeItem, setFeeItem] = useState('');

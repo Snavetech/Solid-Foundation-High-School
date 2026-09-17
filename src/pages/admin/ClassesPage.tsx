@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { UserCheck, Plus, GraduationCap } from 'lucide-react';
 
@@ -6,6 +6,12 @@ export const ClassesPage: React.FC = () => {
   const [classes, setClasses] = useState(feeService.getClasses());
   const [name, setName] = useState('');
   const [arm, setArm] = useState('');
+
+  useEffect(() => {
+    const updateClasses = () => setClasses(feeService.getClasses());
+    const unsubscribe = feeService.subscribe(updateClasses);
+    return () => unsubscribe();
+  }, []);
 
   const handleAddClass = (e: React.FormEvent) => {
     e.preventDefault();

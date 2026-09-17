@@ -9,6 +9,8 @@ import {
   SCHOOL_INFO
 } from './mockData';
 
+import { supabase, isDemoMode } from '../lib/supabase';
+
 // Local storage keys
 const STORAGE_KEYS = {
   PROFILES: 'sfhs_profiles_v5',
@@ -44,43 +46,8 @@ function saveStorage<T>(key: string, data: T): void {
   }
 }
 
-const INITIAL_NOTIFICATIONS: SystemNotification[] = [
-  {
-    id: 'n-1',
-    title: '2025/2026 First Term Billing Live',
-    body: 'Academic term fee structures published by Bursary.',
-    time: '1 hour ago',
-    read: false,
-    type: 'billing'
-  },
-  {
-    id: 'n-2',
-    title: 'Paystack Gateway Active',
-    body: 'Parents can now pay online using Card, Bank Transfer, USSD & Bank Account.',
-    time: '3 hours ago',
-    read: false,
-    type: 'system'
-  }
-];
-
-const INITIAL_MESSAGES: SystemMessage[] = [
-  {
-    id: 'm-1',
-    sender: 'Bursary Department',
-    subject: 'First Term Fees Payment Advisory',
-    preview: 'Please ensure fee installments are completed before the mid-term break.',
-    time: '2 hours ago',
-    read: false
-  },
-  {
-    id: 'm-2',
-    sender: 'School Administration',
-    subject: 'Welcome to SFHS Smart Portal',
-    preview: 'Official digital portal for student fee tracking and instant receipts.',
-    time: 'Yesterday',
-    read: false
-  }
-];
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
+type ChangeListener = () => void;
 
 class FeeService {
   private profiles: Profile[];
@@ -94,6 +61,12 @@ class FeeService {
   private notifications: SystemNotification[];
   private messages: SystemMessage[];
   private currentUser: Profile | null;
+
+  private listeners: Set<ChangeListener> = new Set();
+  private syncStatus: SyncStatus = 'syncing';
+  private syncErrorMessage: string | null = null;
+  private realtimeChannel: any = null;
+  private hasInitializedCloud: boolean = false;
 
   constructor() {
     this.profiles = loadStorage(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
@@ -110,6 +83,307 @@ class FeeService {
 
     // Save initial load
     this.persistAll();
+
+    // Initialize Supabase Cloud Sync & Real-time channel
+    this.initSupabaseSync();
+  }
+
+  // --- REACTIVE EVENT SUBSCRIBERS ---
+  subscribe(listener: ChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notifyListeners(): void {
+    this.listeners.forEach(fn => {
+      try {
+        fn();
+      } catch (err) {
+        console.error('Error in feeService listener callback:', err);
+      }
+    });
+  }
+
+  getSyncStatus(): { status: SyncStatus; errorMessage: string | null } {
+    return { status: this.syncStatus, errorMessage: this.syncErrorMessage };
+  }
+
+  // --- SUPABASE CLOUD INITIALIZATION & REALTIME CHANNEL ---
+  async initSupabaseSync(): Promise<void> {
+    if (isDemoMode) {
+      this.syncStatus = 'offline';
+      this.notifyListeners();
+      return;
+    }
+
+    try {
+      this.syncStatus = 'syncing';
+      this.notifyListeners();
+
+      await this.pullCloudData();
+      this.setupRealtimeSubscription();
+
+      // Poll periodically (every 10 seconds) as a fail-safe backup for network drops
+      if (typeof window !== 'undefined') {
+        window.addEventListener('focus', () => this.pullCloudData(false));
+        setInterval(() => this.pullCloudData(false), 10000);
+      }
+    } catch (err: any) {
+      console.warn('Initial Supabase sync deferred (will retry):', err);
+      this.syncStatus = 'offline';
+      this.syncErrorMessage = err?.message || 'Offline mode';
+      this.notifyListeners();
+    }
+  }
+
+  async pullCloudData(showSpinner = true): Promise<void> {
+    if (isDemoMode) return;
+
+    if (showSpinner) {
+      this.syncStatus = 'syncing';
+      this.notifyListeners();
+    }
+
+    try {
+      // Parallel fetch all primary tables from remote Supabase
+      const [
+        classesRes,
+        sessionsRes,
+        guardiansRes,
+        studentsRes,
+        feeStructsRes,
+        paymentsRes,
+        receiptsRes,
+        profilesRes
+      ] = await Promise.all([
+        supabase.from('classes').select('*'),
+        supabase.from('session_terms').select('*'),
+        supabase.from('guardians').select('*'),
+        supabase.from('students').select('*'),
+        supabase.from('fee_structures').select('*'),
+        supabase.from('payments').select('*'),
+        supabase.from('receipts').select('*'),
+        supabase.from('profiles').select('*')
+      ]);
+
+      // If RLS recursion or connection error occurred
+      const errors = [classesRes.error, studentsRes.error, guardiansRes.error].filter(Boolean);
+      if (errors.length > 0) {
+        throw errors[0];
+      }
+
+      // Check if remote cloud database is completely empty; if so, push initial seed
+      const cloudHasStudents = studentsRes.data && studentsRes.data.length > 0;
+      const cloudHasClasses = classesRes.data && classesRes.data.length > 0;
+
+      if (!cloudHasClasses && !cloudHasStudents && !this.hasInitializedCloud) {
+        console.log('Remote Supabase tables empty, seeding initial records...');
+        await this.seedCloudDatabase();
+        this.hasInitializedCloud = true;
+        this.syncStatus = 'synced';
+        this.syncErrorMessage = null;
+        this.notifyListeners();
+        return;
+      }
+
+      // Ingest remote data into memory & local cache
+      if (classesRes.data && classesRes.data.length > 0) {
+        this.classes = classesRes.data;
+        saveStorage(STORAGE_KEYS.CLASSES, this.classes);
+      }
+
+      if (sessionsRes.data && sessionsRes.data.length > 0) {
+        this.sessions = sessionsRes.data;
+        saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
+      }
+
+      if (guardiansRes.data && guardiansRes.data.length > 0) {
+        this.guardians = guardiansRes.data;
+        saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
+      }
+
+      if (studentsRes.data && studentsRes.data.length > 0) {
+        this.students = studentsRes.data;
+        saveStorage(STORAGE_KEYS.STUDENTS, this.students);
+      }
+
+      if (feeStructsRes.data && feeStructsRes.data.length > 0) {
+        this.feeStructures = feeStructsRes.data;
+        saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
+      }
+
+      if (paymentsRes.data && paymentsRes.data.length > 0) {
+        this.payments = paymentsRes.data;
+        saveStorage(STORAGE_KEYS.PAYMENTS, this.payments);
+      }
+
+      if (receiptsRes.data && receiptsRes.data.length > 0) {
+        this.receipts = receiptsRes.data;
+        saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
+      }
+
+      if (profilesRes.data && profilesRes.data.length > 0) {
+        // Merge profiles preserving any current credentials
+        const profileMap = new Map(this.profiles.map(p => [p.id, p]));
+        profilesRes.data.forEach((p: Profile) => profileMap.set(p.id, { ...profileMap.get(p.id), ...p }));
+        this.profiles = Array.from(profileMap.values());
+        saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+      }
+
+      this.syncStatus = 'synced';
+      this.syncErrorMessage = null;
+      this.hasInitializedCloud = true;
+      this.notifyListeners();
+    } catch (err: any) {
+      console.warn('Failed to pull from Supabase:', err);
+      this.syncStatus = 'error';
+      this.syncErrorMessage = err?.message || 'Sync error';
+      this.notifyListeners();
+    }
+  }
+
+  private setupRealtimeSubscription(): void {
+    if (this.realtimeChannel) {
+      try {
+        supabase.removeChannel(this.realtimeChannel);
+      } catch (e) {}
+    }
+
+    // Subscribe to all changes on public schema tables
+    this.realtimeChannel = supabase
+      .channel('sfhs-cross-device-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          console.log('⚡ Realtime change received from other device:', payload);
+          this.handleRealtimeIncomingChange(payload);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('🟢 Supabase Realtime channel connected across devices.');
+          this.syncStatus = 'synced';
+          this.notifyListeners();
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Supabase Realtime status:', status);
+        }
+      });
+  }
+
+  private handleRealtimeIncomingChange(payload: any) {
+    const { table, eventType, new: newRow, old: oldRow } = payload;
+    if (!table) return;
+
+    if (table === 'students') {
+      if (eventType === 'INSERT') {
+        if (!this.students.some(s => s.id === newRow.id)) {
+          this.students.push(newRow);
+          // Broadcast in-app system notification
+          this.notifications.unshift({
+            id: `n-realtime-${Date.now()}`,
+            title: 'New Student Added',
+            body: `${newRow.full_name} (${newRow.admission_no}) was just enrolled from another computer.`,
+            time: 'Just now',
+            read: false,
+            type: 'system'
+          });
+        }
+      } else if (eventType === 'UPDATE') {
+        const idx = this.students.findIndex(s => s.id === newRow.id);
+        if (idx !== -1) this.students[idx] = { ...this.students[idx], ...newRow };
+        else this.students.push(newRow);
+      } else if (eventType === 'DELETE') {
+        this.students = this.students.filter(s => s.id !== oldRow.id);
+      }
+      saveStorage(STORAGE_KEYS.STUDENTS, this.students);
+      saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
+    } else if (table === 'guardians') {
+      if (eventType === 'INSERT') {
+        if (!this.guardians.some(g => g.id === newRow.id)) this.guardians.push(newRow);
+      } else if (eventType === 'UPDATE') {
+        const idx = this.guardians.findIndex(g => g.id === newRow.id);
+        if (idx !== -1) this.guardians[idx] = { ...this.guardians[idx], ...newRow };
+      } else if (eventType === 'DELETE') {
+        this.guardians = this.guardians.filter(g => g.id !== oldRow.id);
+      }
+      saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
+    } else if (table === 'payments') {
+      if (eventType === 'INSERT') {
+        if (!this.payments.some(p => p.id === newRow.id)) {
+          this.payments.unshift(newRow);
+          this.notifications.unshift({
+            id: `n-realtime-pay-${Date.now()}`,
+            title: 'New Payment Logged',
+            body: `₦${Number(newRow.amount).toLocaleString('en-NG')} payment was just recorded.`,
+            time: 'Just now',
+            read: false,
+            type: 'payment'
+          });
+        }
+      } else if (eventType === 'DELETE') {
+        this.payments = this.payments.filter(p => p.id !== oldRow.id);
+      }
+      saveStorage(STORAGE_KEYS.PAYMENTS, this.payments);
+      saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
+    } else if (table === 'receipts') {
+      if (eventType === 'INSERT') {
+        if (!this.receipts.some(r => r.id === newRow.id)) this.receipts.unshift(newRow);
+      } else if (eventType === 'DELETE') {
+        this.receipts = this.receipts.filter(r => r.id !== oldRow.id);
+      }
+      saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
+    } else if (table === 'classes') {
+      if (eventType === 'INSERT') {
+        if (!this.classes.some(c => c.id === newRow.id)) this.classes.push(newRow);
+      }
+      saveStorage(STORAGE_KEYS.CLASSES, this.classes);
+    } else if (table === 'session_terms') {
+      if (eventType === 'INSERT') {
+        if (!this.sessions.some(s => s.id === newRow.id)) this.sessions.push(newRow);
+      } else if (eventType === 'UPDATE') {
+        const idx = this.sessions.findIndex(s => s.id === newRow.id);
+        if (idx !== -1) this.sessions[idx] = { ...this.sessions[idx], ...newRow };
+      }
+      saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
+    } else if (table === 'fee_structures') {
+      if (eventType === 'INSERT') {
+        if (!this.feeStructures.some(f => f.id === newRow.id)) this.feeStructures.push(newRow);
+      } else if (eventType === 'DELETE') {
+        this.feeStructures = this.feeStructures.filter(f => f.id !== oldRow.id);
+      }
+      saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
+    } else if (table === 'profiles') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const idx = this.profiles.findIndex(p => p.id === newRow.id);
+        if (idx !== -1) this.profiles[idx] = { ...this.profiles[idx], ...newRow };
+        else this.profiles.push(newRow);
+        saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+      }
+    }
+
+    this.notifyListeners();
+  }
+
+  async seedCloudDatabase(): Promise<void> {
+    try {
+      console.log('Uploading default database to Supabase cloud...');
+      await Promise.allSettled([
+        supabase.from('classes').upsert(this.classes),
+        supabase.from('session_terms').upsert(this.sessions),
+        supabase.from('guardians').upsert(this.guardians),
+        supabase.from('students').upsert(this.students),
+        supabase.from('fee_structures').upsert(this.feeStructures),
+        supabase.from('payments').upsert(this.payments),
+        supabase.from('receipts').upsert(this.receipts),
+        supabase.from('profiles').upsert(this.profiles)
+      ]);
+      console.log('Seed data successfully uploaded to Supabase cloud.');
+    } catch (e) {
+      console.warn('Seed upload error:', e);
+    }
   }
 
   private persistAll() {
@@ -166,21 +440,29 @@ class FeeService {
   }
 
   voidPayment(paymentId: string): void {
+    const paymentToVoid = this.payments.find(p => p.id === paymentId);
     this.payments = this.payments.filter(p => p.id !== paymentId);
     this.receipts = this.receipts.filter(r => r.payment_id !== paymentId);
     saveStorage(STORAGE_KEYS.PAYMENTS, this.payments);
     saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
 
+    // Sync deletion to Supabase cloud
+    if (!isDemoMode) {
+      supabase.from('receipts').delete().eq('payment_id', paymentId).then(() => {});
+      supabase.from('payments').delete().eq('id', paymentId).then(() => {});
+    }
+
     const newNotif: SystemNotification = {
       id: `n-${Date.now()}`,
       title: 'Payment Entry Voided',
-      body: `A payment transaction (${paymentId}) was voided by Super Admin. Student balance has been updated.`,
+      body: `A payment transaction (${paymentToVoid?.reference || paymentId}) was voided by Super Admin. Student balance has been updated.`,
       time: 'Just now',
       read: false,
       type: 'system'
     };
     this.notifications.unshift(newNotif);
     saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
+    this.notifyListeners();
   }
 
   exportSystemBackup(): string {
@@ -390,6 +672,12 @@ class FeeService {
     };
     this.classes.push(newClass);
     saveStorage(STORAGE_KEYS.CLASSES, this.classes);
+
+    if (!isDemoMode) {
+      supabase.from('classes').insert(newClass).then(() => {});
+    }
+
+    this.notifyListeners();
     return newClass;
   }
 
@@ -407,6 +695,13 @@ class FeeService {
       is_current: s.id === id
     }));
     saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
+
+    if (!isDemoMode) {
+      supabase.from('session_terms').update({ is_current: false }).neq('id', id).then(() => {});
+      supabase.from('session_terms').update({ is_current: true }).eq('id', id).then(() => {});
+    }
+
+    this.notifyListeners();
   }
 
   addSession(session: string, term: 'First' | 'Second' | 'Third'): SessionTerm {
@@ -419,6 +714,12 @@ class FeeService {
     };
     this.sessions.push(newSession);
     saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
+
+    if (!isDemoMode) {
+      supabase.from('session_terms').insert(newSession).then(() => {});
+    }
+
+    this.notifyListeners();
     return newSession;
   }
 
@@ -454,9 +755,10 @@ class FeeService {
     this.guardians.push(newGuardian);
     saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
 
+    let parentProfile: Profile | null = null;
     // Auto-provision parent login account
     if (email) {
-      const parentProfile: Profile = {
+      parentProfile = {
         id: `p-par-${newGuardian.id}`,
         full_name,
         role: 'parent',
@@ -497,6 +799,15 @@ class FeeService {
       saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
     }
 
+    // Sync to Supabase cloud
+    if (!isDemoMode) {
+      supabase.from('guardians').insert(newGuardian).then(() => {});
+      if (parentProfile) {
+        supabase.from('profiles').upsert(parentProfile).then(() => {});
+      }
+    }
+
+    this.notifyListeners();
     return newGuardian;
   }
 
@@ -602,6 +913,15 @@ class FeeService {
     this.profiles.push(studentProfile);
     saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
 
+    // Sync to Supabase cloud
+    if (!isDemoMode) {
+      // Strip join properties before saving to database
+      const { school_class, guardian, ...cleanStudent } = newStudent as any;
+      supabase.from('students').insert(cleanStudent).then(() => {});
+      supabase.from('profiles').upsert(studentProfile).then(() => {});
+    }
+
+    this.notifyListeners();
     return this.getStudentById(newStudent.id)!;
   }
 
@@ -610,6 +930,13 @@ class FeeService {
     if (index === -1) return undefined;
     this.students[index] = { ...this.students[index], ...updates };
     saveStorage(STORAGE_KEYS.STUDENTS, this.students);
+
+    if (!isDemoMode) {
+      const { school_class, guardian, ...cleanUpdates } = updates as any;
+      supabase.from('students').update(cleanUpdates).eq('id', id).then(() => {});
+    }
+
+    this.notifyListeners();
     return this.getStudentById(id);
   }
 
@@ -641,12 +968,24 @@ class FeeService {
     };
     this.feeStructures.push(newFs);
     saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
+
+    if (!isDemoMode) {
+      supabase.from('fee_structures').insert(newFs).then(() => {});
+    }
+
+    this.notifyListeners();
     return newFs;
   }
 
   deleteFeeStructure(id: string): void {
     this.feeStructures = this.feeStructures.filter(fs => fs.id !== id);
     saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
+
+    if (!isDemoMode) {
+      supabase.from('fee_structures').delete().eq('id', id).then(() => {});
+    }
+
+    this.notifyListeners();
   }
 
   // --- PAYMENTS & RECEIPTS ---
@@ -719,6 +1058,13 @@ class FeeService {
     this.receipts.push(receipt);
     saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
 
+    // Sync to Supabase cloud
+    if (!isDemoMode) {
+      const { student, fee_structure, recorder, ...cleanPayment } = payment as any;
+      supabase.from('payments').insert(cleanPayment).then(() => {});
+      supabase.from('receipts').insert(receipt).then(() => {});
+    }
+
     // Broadcast Real-Time Notification & Email Message
     const student = this.getStudentById(student_id);
     const studentName = student ? student.full_name : 'Student';
@@ -745,6 +1091,7 @@ class FeeService {
     this.messages.unshift(newMsg);
     saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
     saveStorage(STORAGE_KEYS.MESSAGES, this.messages);
+    this.notifyListeners();
 
     return {
       payment: this.getPaymentById(payment.id)!,

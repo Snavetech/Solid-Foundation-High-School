@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { Payment, Receipt } from '../../types/database';
 import { ReceiptModal } from '../../components/common/ReceiptModal';
@@ -14,6 +14,15 @@ export const PaymentsListPage: React.FC = () => {
   const isSuperAdmin = currentUser.role === 'super_admin';
 
   const [payments, setPayments] = useState<Payment[]>(feeService.getPayments());
+
+  // Listen for payments recorded from other devices (e.g. Bursar machine, Parent Paystack)
+  useEffect(() => {
+    const updatePayments = () => {
+      setPayments(feeService.getPayments());
+    };
+    const unsubscribe = feeService.subscribe(updatePayments);
+    return () => unsubscribe();
+  }, []);
 
   const filteredPayments = payments.filter(p => {
     const matchesSearch = (p.student?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

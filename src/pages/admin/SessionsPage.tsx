@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { Calendar, Plus, CheckCircle2 } from 'lucide-react';
 
@@ -6,6 +6,12 @@ export const SessionsPage: React.FC = () => {
   const [sessions, setSessions] = useState(feeService.getSessions());
   const [sessionName, setSessionName] = useState('2025/2026');
   const [termName, setTermName] = useState<'First' | 'Second' | 'Third'>('First');
+
+  useEffect(() => {
+    const updateSessions = () => setSessions(feeService.getSessions());
+    const unsubscribe = feeService.subscribe(updateSessions);
+    return () => unsubscribe();
+  }, []);
 
   const handleAddSession = (e: React.FormEvent) => {
     e.preventDefault();

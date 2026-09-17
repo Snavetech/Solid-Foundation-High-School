@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { Profile, SystemNotification, SystemMessage } from '../../types/database';
-import { User, LogOut, Menu, X, Search, Bell, Mail, CheckCircle2, ShieldCheck, CreditCard, Clock, FileText } from 'lucide-react';
+import { User, LogOut, Menu, X, Search, Bell, Mail, CheckCircle2, ShieldCheck, CreditCard, Clock, FileText, Database, RefreshCw } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: Profile;
@@ -22,17 +22,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const [notifications, setNotifications] = useState<SystemNotification[]>(feeService.getNotifications());
   const [messages, setMessages] = useState<SystemMessage[]>(feeService.getMessages());
+  const [syncInfo, setSyncInfo] = useState(feeService.getSyncStatus());
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Sync notifications & messages on render or interval
+  // Sync notifications, messages, and subscribe to feeService updates
   useEffect(() => {
-    const syncInterval = setInterval(() => {
+    const updateLocalState = () => {
       setNotifications(feeService.getNotifications());
       setMessages(feeService.getMessages());
-    }, 1000);
-    return () => clearInterval(syncInterval);
+      setSyncInfo(feeService.getSyncStatus());
+    };
+
+    const unsubscribe = feeService.subscribe(updateLocalState);
+    const syncInterval = setInterval(updateLocalState, 2000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(syncInterval);
+    };
   }, []);
+
+  const handleManualSync = () => {
+    feeService.pullCloudData(true);
+  };
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -106,6 +119,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Quick Action Icons & User Badge */}
             <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0 relative" ref={dropdownRef}>
               
+              {/* Cloud Sync Status Indicator */}
+              <button
+                onClick={handleManualSync}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
+                  syncInfo.status === 'synced'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100/70'
+                    : syncInfo.status === 'syncing'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100/70'
+                    : 'bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100/70'
+                }`}
+                title={
+                  syncInfo.status === 'synced'
+                    ? 'Connected: All devices synced in real-time. Click to refresh.'
+                    : syncInfo.status === 'syncing'
+                    ? 'Syncing changes with cloud database...'
+                    : 'Local mode active. Click to retry connecting to Supabase cloud.'
+                }
+              >
+                <span className={`w-2 h-2 rounded-full ${
+                  syncInfo.status === 'synced' ? 'bg-emerald-500 animate-pulse' : syncInfo.status === 'syncing' ? 'bg-indigo-500 animate-ping' : 'bg-amber-500'
+                }`} />
+                <span className="capitalize">
+                  {syncInfo.status === 'synced' ? 'Cloud Synced' : syncInfo.status === 'syncing' ? 'Syncing...' : 'Local Cache'}
+                </span>
+                <RefreshCw className={`w-3 h-3 ml-0.5 text-slate-400 ${syncInfo.status === 'syncing' ? 'animate-spin' : ''}`} />
+              </button>
+
               {/* Quick Icon Buttons */}
               <div className="flex items-center space-x-0.5 sm:space-x-1">
                 

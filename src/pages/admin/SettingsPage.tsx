@@ -147,6 +147,11 @@ export const SettingsPage: React.FC = () => {
         <SystemBackupCard />
       )}
 
+      {/* Live Cloud Database & Multi-Device Sync Card */}
+      {currentUser.role === 'super_admin' && (
+        <CloudDatabaseCard />
+      )}
+
       {/* Change Password Card */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-5">
         <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -569,6 +574,124 @@ const SystemBackupCard: React.FC = () => {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Restore Factory Defaults</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* Live Cloud Database & Multi-Device Sync Card */
+const CloudDatabaseCard: React.FC = () => {
+  const [syncStatus, setSyncStatus] = useState(feeService.getSyncStatus());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = feeService.subscribe(() => {
+      setSyncStatus(feeService.getSyncStatus());
+    });
+    return () => unsub();
+  }, []);
+
+  const handlePullNow = async () => {
+    setIsSyncing(true);
+    setFeedback(null);
+    try {
+      await feeService.pullCloudData(true);
+      setFeedback('Cloud records synced with this computer.');
+    } catch (e: any) {
+      setFeedback(`Sync issue: ${e?.message || 'Connection delayed'}`);
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setFeedback(null), 4000);
+    }
+  };
+
+  const handleSeedCloud = async () => {
+    if (!window.confirm("Upload current local data to Supabase cloud? This will ensure other computers receive all current classes, students, and payment records.")) {
+      return;
+    }
+    setIsUploading(true);
+    setFeedback(null);
+    try {
+      await feeService.seedCloudDatabase();
+      setFeedback('Current database successfully pushed to Supabase cloud!');
+    } catch (e: any) {
+      setFeedback(`Upload failed: ${e?.message || 'Error uploading records'}`);
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setFeedback(null), 5000);
+    }
+  };
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'Not configured';
+
+  return (
+    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-5">
+      <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+        <div>
+          <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+            <Database className="w-5 h-5 text-indigo-600" /> Multi-Device Cloud Persistence & Live Sync
+          </h3>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            Real-time synchronization across Bursar and Super Admin computers via Supabase PostgreSQL & WebSockets
+          </p>
+        </div>
+        <div className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-full border flex items-center gap-1.5 w-fit ${
+          syncStatus.status === 'synced'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+            : syncStatus.status === 'syncing'
+            ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
+            : 'bg-amber-50 text-amber-700 border-amber-200/60'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${
+            syncStatus.status === 'synced' ? 'bg-emerald-500 animate-pulse' : syncStatus.status === 'syncing' ? 'bg-indigo-500 animate-ping' : 'bg-amber-500'
+          }`} />
+          <span>{syncStatus.status === 'synced' ? 'Active Realtime Sync' : syncStatus.status === 'syncing' ? 'Syncing...' : 'Local Cache Active'}</span>
+        </div>
+      </div>
+
+      {feedback && (
+        <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl text-xs font-bold text-indigo-800 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span>{feedback}</span>
+        </div>
+      )}
+
+      <div className="space-y-3 text-xs">
+        <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="font-bold text-slate-500 uppercase text-[10px] block">Connected Database</span>
+              <span className="font-mono font-bold text-slate-900 text-xs">{supabaseUrl}</span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Changes made by Bursar or Super Admin propagate automatically in real-time.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handlePullNow}
+            disabled={isSyncing}
+            className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Refreshing...' : 'Sync Cloud Now'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSeedCloud}
+            disabled={isUploading}
+            className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>{isUploading ? 'Uploading Data...' : 'Push Current Records to Cloud'}</span>
           </button>
         </div>
       </div>

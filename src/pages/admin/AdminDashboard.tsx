@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { feeService } from '../../services/feeService';
 import { Payment, Receipt } from '../../types/database';
@@ -12,6 +12,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export const AdminDashboard: React.FC = () => {
   const [selectedTermId, setSelectedTermId] = useState(feeService.getCurrentSession().id);
   const [selectedReceipt, setSelectedReceipt] = useState<{ payment: Payment; receipt: Receipt } | null>(null);
+  const [, setTick] = useState(0);
+
+  // Subscribe to real-time changes across devices
+  useEffect(() => {
+    const unsubscribe = feeService.subscribe(() => {
+      setTick(t => t + 1);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const sessions = feeService.getSessions();
   const metrics = feeService.getAdminDashboardMetrics(selectedTermId);

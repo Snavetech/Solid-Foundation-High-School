@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { feeService } from '../../services/feeService';
 import { Student, SchoolClass, Guardian } from '../../types/database';
@@ -28,9 +28,21 @@ export const StudentsListPage: React.FC = () => {
   const [newGuardianEmail, setNewGuardianEmail] = useState('');
   const [newGuardianRel, setNewGuardianRel] = useState('Father');
 
-  const classes = feeService.getClasses();
+  const [classes, setClasses] = useState(feeService.getClasses());
   const [guardians, setGuardians] = useState(feeService.getGuardians());
   const [students, setStudents] = useState(feeService.getStudents());
+
+  // Listen for real-time changes across devices
+  useEffect(() => {
+    const updateFromService = () => {
+      setClasses(feeService.getClasses());
+      setGuardians(feeService.getGuardians());
+      setStudents(feeService.getStudents());
+    };
+
+    const unsubscribe = feeService.subscribe(updateFromService);
+    return () => unsubscribe();
+  }, []);
 
   const selectedGuardian = guardians.find(g => g.id === guardianId);
 

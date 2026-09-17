@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { Guardian } from '../../types/database';
 import { Users, Search, Plus, Phone, Mail, GraduationCap, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle2, ShieldAlert, Key } from 'lucide-react';
@@ -21,6 +21,16 @@ export const GuardiansListPage: React.FC = () => {
   const [students, setStudents] = useState(feeService.getStudents());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Subscribe to real-time guardian updates across devices
+  useEffect(() => {
+    const updateGuardians = () => {
+      setGuardians(feeService.getGuardians());
+      setStudents(feeService.getStudents());
+    };
+    const unsubscribe = feeService.subscribe(updateGuardians);
+    return () => unsubscribe();
+  }, []);
 
   const classes = feeService.getClasses();
 
