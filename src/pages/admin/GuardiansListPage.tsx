@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { feeService } from '../../services/feeService';
 import { Guardian } from '../../types/database';
 import { Users, Search, Plus, Phone, Mail, GraduationCap, X, Filter, ArrowUpDown, AlertTriangle, CheckCircle2, ShieldAlert, Key } from 'lucide-react';
-import emailjs from '@emailjs/browser';
+import { emailService } from '../../services/emailService';
 
 export const GuardiansListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,31 +100,19 @@ export const GuardiansListPage: React.FC = () => {
     feeService.addGuardian(fullName, phone, email, relationship);
 
     // If email is provided, send real EmailJS email
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
     let emailSent = false;
-    if (email && serviceId && templateId && publicKey) {
-      try {
-        await emailjs.send(
-          serviceId,
-          templateId,
-          {
-            to_email: email.trim(),
-            email: email.trim(),
-            parent_name: fullName.trim(),
-            student_name: 'Student(s) Enrolled at Solid Foundation High School',
-            admission_no: 'Linked via School Bursary',
-            default_password: 'parent123',
-            portal_url: window.location.origin + '/login',
-            login_url: window.location.origin + '/login'
-          },
-          publicKey
-        );
-        emailSent = true;
-      } catch (err) {
-        console.warn('EmailJS dispatch failed from Guardians page:', err);
+    let emailError = '';
+
+    if (email.trim()) {
+      const emailRes = await emailService.sendGuardianWelcomeEmail({
+        guardian_name: fullName.trim(),
+        guardian_email: email.trim(),
+        phone: phone.trim(),
+        default_password: 'parent123'
+      });
+      emailSent = emailRes.success;
+      if (!emailRes.success && emailRes.error) {
+        emailError = emailRes.error;
       }
     }
 
@@ -137,12 +125,14 @@ export const GuardiansListPage: React.FC = () => {
     setEmail('');
     setRelationship('Father');
 
-    setSuccessToast(
-      emailSent
-        ? `Guardian "${fullName}" created & real welcome email sent to ${email}!`
-        : `Guardian "${fullName}" added successfully!`
-    );
-    setTimeout(() => setSuccessToast(null), 5000);
+    if (emailSent) {
+      setSuccessToast(`Guardian "${fullName}" created & official welcome email dispatched to ${email}!`);
+    } else if (email.trim() && emailError) {
+      setSuccessToast(`Guardian "${fullName}" created! (Note: Real email delivery to ${email} failed: ${emailError})`);
+    } else {
+      setSuccessToast(`Guardian "${fullName}" added successfully!`);
+    }
+    setTimeout(() => setSuccessToast(null), 7000);
   };
 
   return (

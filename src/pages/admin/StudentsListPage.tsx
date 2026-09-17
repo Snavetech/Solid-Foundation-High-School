@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { feeService } from '../../services/feeService';
 import { Student, SchoolClass, Guardian } from '../../types/database';
 import { Search, Plus, Filter, Eye, GraduationCap, X, Users, Mail, CheckCircle2, RefreshCw, AlertCircle, Key } from 'lucide-react';
-import emailjs from '@emailjs/browser';
+import { emailService } from '../../services/emailService';
 
 export const StudentsListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,30 +128,19 @@ export const StudentsListPage: React.FC = () => {
 
     // Send real welcome email to the parent if email exists
     let emailSent = false;
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    let emailError = '';
 
-    if (guardianEmailToSend && serviceId && templateId && publicKey) {
-      try {
-        await emailjs.send(
-          serviceId,
-          templateId,
-          {
-            to_email: guardianEmailToSend,
-            email: guardianEmailToSend,
-            parent_name: guardianNameToSend,
-            student_name: fullName.trim(),
-            admission_no: admissionNo.trim(),
-            default_password: 'parent123',
-            portal_url: window.location.origin + '/login',
-            login_url: window.location.origin + '/login'
-          },
-          publicKey
-        );
-        emailSent = true;
-      } catch (emailErr) {
-        console.warn('Failed to send EmailJS from Student registration:', emailErr);
+    if (guardianEmailToSend) {
+      const emailRes = await emailService.sendStudentWelcomeEmail({
+        guardian_name: guardianNameToSend || 'Parent / Guardian',
+        guardian_email: guardianEmailToSend,
+        student_name: fullName.trim(),
+        admission_no: admissionNo.trim(),
+        default_password: 'parent123'
+      });
+      emailSent = emailRes.success;
+      if (!emailRes.success && emailRes.error) {
+        emailError = emailRes.error;
       }
     }
 
@@ -172,12 +161,14 @@ export const StudentsListPage: React.FC = () => {
     setNewGuardianRel('Father');
     setGuardianMode('existing');
 
-    setSuccessToast(
-      emailSent
-        ? `Student "${fullName}" registered & welcome email dispatched to parent (${guardianEmailToSend})!`
-        : `Student "${fullName}" registered successfully!`
-    );
-    setTimeout(() => setSuccessToast(null), 6000);
+    if (emailSent) {
+      setSuccessToast(`Student "${fullName}" registered & official welcome email dispatched to parent (${guardianEmailToSend})!`);
+    } else if (guardianEmailToSend && emailError) {
+      setSuccessToast(`Student "${fullName}" registered! (Note: Real email delivery to ${guardianEmailToSend} failed: ${emailError})`);
+    } else {
+      setSuccessToast(`Student "${fullName}" registered successfully!`);
+    }
+    setTimeout(() => setSuccessToast(null), 7000);
   };
 
   return (

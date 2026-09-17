@@ -163,14 +163,23 @@ export const AdminDashboard: React.FC = () => {
           <p className="text-xs text-slate-400 font-medium">Comparing expected revenue vs realized payments in Naira</p>
         </div>
 
-        <div className="h-72 w-full pt-4">
+        <div className="h-80 w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={metrics.classBreakdown} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <BarChart data={metrics.classBreakdown} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="class_name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <XAxis 
+                dataKey="class_name" 
+                stroke="#94a3b8" 
+                fontSize={10} 
+                tickLine={false}
+                interval={0}
+                angle={-25}
+                textAnchor="end"
+                height={45}
+              />
               <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(v) => `₦${(v / 1000)}k`} />
               <Tooltip
-                formatter={(value: any) => [`₦${Number(value).toLocaleString('en-NG')}`, '']}
+                formatter={(value: any, name: any) => [`₦${Number(value).toLocaleString('en-NG')}`, name || 'Amount']}
                 contentStyle={{ backgroundColor: '#1e1b4b', borderRadius: '16px', color: '#fff', fontSize: '12px', border: 'none' }}
               />
               <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />

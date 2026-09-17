@@ -119,6 +119,9 @@ class FeeService {
     this.messages = loadStorage(STORAGE_KEYS.MESSAGES, INITIAL_MESSAGES);
     this.currentUser = loadStorage<Profile | null>(STORAGE_KEYS.CURRENT_USER, null);
 
+    // Sanitize and deduplicate any duplicate classes, sessions, or guardians from past syncs
+    this.sanitizeAndDeduplicate();
+
     // Save initial load
     this.persistAll();
 
@@ -283,6 +286,10 @@ class FeeService {
         this.profiles = Array.from(profileMap.values());
         saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
       }
+
+      // Ensure no duplicate records (classes, sessions, guardians) were ingested
+      this.sanitizeAndDeduplicate();
+      this.persistAll();
 
       this.syncStatus = 'synced';
       this.syncErrorMessage = null;
@@ -456,6 +463,152 @@ class FeeService {
         localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
       } catch (e) {}
     }
+  }
+
+  // Purge duplicate records caused by conflicting remote UUIDs vs local IDs
+  private sanitizeAndDeduplicate(): void {
+    // 1. Deduplicate Classes by normalized (name + ' ' + (arm || ''))
+    const classGroups = new Map<string, SchoolClass[]>();
+    for (const c of this.classes) {
+      const key = `${(c.name || '').trim().toLowerCase()}__${(c.arm || '').trim().toLowerCase()}`;
+      if (!classGroups.has(key)) classGroups.set(key, []);
+      classGroups.get(key)!.push(c);
+    }
+
+    const uniqueClasses: SchoolClass[] = [];
+    const classIdRedirects = new Map<string, string>(); // oldDuplicateId -> canonicalId
+
+    for (const [, group] of classGroups) {
+      if (group.length === 1) {
+        uniqueClasses.push(group[0]);
+      } else {
+        // Prioritize the entry that has active students or fee structures associated with it
+        const score = (c: SchoolClass) => {
+          const studentCount = this.students.filter(s => s.class_id === c.id).length;
+          const feeCount = this.feeStructures.filter(f => f.class_id === c.id).length;
+          const isInitialFormat = c.id.startsWith('c-') ? 1 : 0;
+          return studentCount * 100 + feeCount * 10 + isInitialFormat;
+        };
+
+        group.sort((a, b) => score(b) - score(a));
+        const canonical = group[0];
+        uniqueClasses.push(canonical);
+
+        for (let i = 1; i < group.length; i++) {
+          classIdRedirects.set(group[i].id, canonical.id);
+        }
+      }
+    }
+
+    // Remap any foreign keys pointing to removed duplicate classes
+    if (classIdRedirects.size > 0) {
+      this.students = this.students.map(s => {
+        if (classIdRedirects.has(s.class_id)) {
+          return { ...s, class_id: classIdRedirects.get(s.class_id)! };
+        }
+        return s;
+      });
+      this.feeStructures = this.feeStructures.map(f => {
+        if (classIdRedirects.has(f.class_id)) {
+          return { ...f, class_id: classIdRedirects.get(f.class_id)! };
+        }
+        return f;
+      });
+    }
+    this.classes = uniqueClasses;
+
+    // 2. Deduplicate Sessions by (session + ' ' + term)
+    const sessionGroups = new Map<string, SessionTerm[]>();
+    for (const s of this.sessions) {
+      const key = `${(s.session || '').trim().toLowerCase()}__${(s.term || '').trim().toLowerCase()}`;
+      if (!sessionGroups.has(key)) sessionGroups.set(key, []);
+      sessionGroups.get(key)!.push(s);
+    }
+
+    const uniqueSessions: SessionTerm[] = [];
+    const sessionIdRedirects = new Map<string, string>();
+
+    for (const [, group] of sessionGroups) {
+      if (group.length === 1) {
+        uniqueSessions.push(group[0]);
+      } else {
+        const score = (s: SessionTerm) => {
+          const feeCount = this.feeStructures.filter(f => f.session_term_id === s.id).length;
+          const payCount = this.payments.filter(p => p.session_term_id === s.id).length;
+          const isCurrent = s.is_current ? 10 : 0;
+          return feeCount * 100 + payCount * 10 + isCurrent;
+        };
+        group.sort((a, b) => score(b) - score(a));
+        const canonical = group[0];
+        uniqueSessions.push(canonical);
+
+        for (let i = 1; i < group.length; i++) {
+          sessionIdRedirects.set(group[i].id, canonical.id);
+        }
+      }
+    }
+
+    if (sessionIdRedirects.size > 0) {
+      this.feeStructures = this.feeStructures.map(f => {
+        if (sessionIdRedirects.has(f.session_term_id)) {
+          return { ...f, session_term_id: sessionIdRedirects.get(f.session_term_id)! };
+        }
+        return f;
+      });
+      this.payments = this.payments.map(p => {
+        if (sessionIdRedirects.has(p.session_term_id)) {
+          return { ...p, session_term_id: sessionIdRedirects.get(p.session_term_id)! };
+        }
+        return p;
+      });
+    }
+    this.sessions = uniqueSessions;
+
+    // 3. Deduplicate Guardians by full_name and phone
+    const guardianGroups = new Map<string, Guardian[]>();
+    for (const g of this.guardians) {
+      const key = `${(g.full_name || '').trim().toLowerCase()}__${(g.phone || '').replace(/[\s-]/g, '')}`;
+      if (!guardianGroups.has(key)) guardianGroups.set(key, []);
+      guardianGroups.get(key)!.push(g);
+    }
+
+    const uniqueGuardians: Guardian[] = [];
+    const guardianIdRedirects = new Map<string, string>();
+
+    for (const [, group] of guardianGroups) {
+      if (group.length === 1) {
+        uniqueGuardians.push(group[0]);
+      } else {
+        const score = (g: Guardian) => this.students.filter(s => s.guardian_id === g.id).length;
+        group.sort((a, b) => score(b) - score(a));
+        const canonical = group[0];
+        uniqueGuardians.push(canonical);
+
+        for (let i = 1; i < group.length; i++) {
+          guardianIdRedirects.set(group[i].id, canonical.id);
+        }
+      }
+    }
+
+    if (guardianIdRedirects.size > 0) {
+      this.students = this.students.map(s => {
+        if (s.guardian_id && guardianIdRedirects.has(s.guardian_id)) {
+          return { ...s, guardian_id: guardianIdRedirects.get(s.guardian_id)! };
+        }
+        return s;
+      });
+    }
+    this.guardians = uniqueGuardians;
+
+    // 4. Deduplicate Fee Structures by (class_id + session_term_id + fee_item)
+    const fsMap = new Map<string, FeeStructure>();
+    for (const f of this.feeStructures) {
+      const key = `${f.class_id}__${f.session_term_id}__${(f.fee_item || '').trim().toLowerCase()}`;
+      if (!fsMap.has(key)) {
+        fsMap.set(key, f);
+      }
+    }
+    this.feeStructures = Array.from(fsMap.values());
   }
 
   // --- AUTH & ROLE METHODS ---
@@ -1218,27 +1371,36 @@ class FeeService {
     const totalCollected = allPayments.reduce((sum, p) => sum + p.amount, 0);
     const outstandingBalance = Math.max(0, totalExpected - totalCollected);
 
-    // Class breakdown
-    const classBreakdown = this.classes.map(c => {
-      const classStudents = students.filter(s => s.class_id === c.id);
-      const classFees = this.getFeeStructuresForClass(c.id, term.id);
-      const feePerStudent = classFees.reduce((s, f) => s + f.amount, 0);
-      const expected = classStudents.length * feePerStudent;
-      
-      const classStudentIds = new Set(classStudents.map(s => s.id));
-      const collected = allPayments
-        .filter(p => classStudentIds.has(p.student_id))
-        .reduce((sum, p) => sum + p.amount, 0);
+    // Class breakdown - deduplicate classes and filter out empty phantom entries
+    const seenClassNames = new Set<string>();
+    const classBreakdown = this.classes
+      .filter(c => {
+        const fullName = `${c.name} ${c.arm || ''}`.trim().toLowerCase();
+        if (seenClassNames.has(fullName)) return false;
+        seenClassNames.add(fullName);
+        return true;
+      })
+      .map(c => {
+        const classStudents = students.filter(s => s.class_id === c.id);
+        const classFees = this.getFeeStructuresForClass(c.id, term.id);
+        const feePerStudent = classFees.reduce((sum, f) => sum + f.amount, 0);
+        const expected = classStudents.length * feePerStudent;
+        
+        const classStudentIds = new Set(classStudents.map(s => s.id));
+        const collected = allPayments
+          .filter(p => classStudentIds.has(p.student_id))
+          .reduce((sum, p) => sum + p.amount, 0);
 
-      return {
-        class_id: c.id,
-        class_name: `${c.name} ${c.arm || ''}`.trim(),
-        student_count: classStudents.length,
-        expected,
-        collected,
-        outstanding: Math.max(0, expected - collected)
-      };
-    });
+        return {
+          class_id: c.id,
+          class_name: `${c.name} ${c.arm || ''}`.trim(),
+          student_count: classStudents.length,
+          expected,
+          collected,
+          outstanding: Math.max(0, expected - collected)
+        };
+      })
+      .filter(item => item.student_count > 0 || item.expected > 0 || item.collected > 0);
 
     return {
       term,

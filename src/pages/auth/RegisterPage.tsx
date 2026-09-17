@@ -4,7 +4,7 @@ import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { UserRole } from '../../types/database';
 import { UserCheck, ArrowRight, ArrowLeft, CheckCircle2, Mail, ShieldCheck, Key } from 'lucide-react';
-import emailjs from '@emailjs/browser';
+import { emailService } from '../../services/emailService';
 
 interface RegisterPageProps {
   onLoginSuccess: (role: UserRole) => void;
@@ -59,39 +59,20 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
     );
     feeService.updateStudent(match.id, { guardian_id: guardian.id });
 
-    // Send Real Email via EmailJS using environment keys
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    // Send Real Email via EmailJS using unified emailService
+    const emailRes = await emailService.sendStudentWelcomeEmail({
+      guardian_name: fullName.trim(),
+      guardian_email: email.trim(),
+      student_name: match.full_name,
+      admission_no: match.admission_no,
+      default_password: 'parent123'
+    });
 
-    if (serviceId && templateId && publicKey) {
-      try {
-        const res = await emailjs.send(
-          serviceId,
-          templateId,
-          {
-            to_email: email.trim(),
-            email: email.trim(),
-            user_email: email.trim(),
-            recipient_email: email.trim(),
-            parent_name: fullName.trim(),
-            name: fullName.trim(),
-            student_name: match.full_name,
-            admission_no: match.admission_no,
-            default_password: 'parent123',
-            portal_url: window.location.origin + '/login',
-            login_url: window.location.origin + '/login'
-          },
-          publicKey
-        );
-        console.log('EmailJS response:', res.status, res.text);
-        setEmailStatus('sent');
-      } catch (emailErr: any) {
-        console.warn('Real email dispatch failed:', emailErr);
-        setEmailStatus('error');
-      }
+    if (emailRes.success) {
+      setEmailStatus('sent');
     } else {
-      setEmailStatus('fallback');
+      console.warn('Real email dispatch failed:', emailRes.error);
+      setEmailStatus('error');
     }
 
     feeService.switchDemoUser('parent');

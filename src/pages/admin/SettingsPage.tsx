@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
-import { Settings, ShieldCheck, KeyRound, Lock, User, GraduationCap, Mail, Phone, CheckCircle2, AlertCircle, Building2, Download, RefreshCw, Database, Sparkles } from 'lucide-react';
+import { emailService } from '../../services/emailService';
+import { Settings, ShieldCheck, KeyRound, Lock, User, GraduationCap, Mail, Phone, CheckCircle2, AlertCircle, Building2, Download, RefreshCw, Database, Sparkles, Send } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const currentUser = feeService.getCurrentUser();
@@ -255,8 +256,9 @@ const BursarManagementCard: React.FC<BursarCardProps> = ({ initialBursar }) => {
 
   const [bursarMsg, setBursarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [bursarLoading, setBursarLoading] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
 
-  const handleUpdateBursar = (e: React.FormEvent) => {
+  const handleUpdateBursar = async (e: React.FormEvent) => {
     e.preventDefault();
     setBursarMsg(null);
     if (!bursarName.trim() || !bursarEmail.trim()) {
@@ -265,46 +267,94 @@ const BursarManagementCard: React.FC<BursarCardProps> = ({ initialBursar }) => {
     }
 
     setBursarLoading(true);
-    setTimeout(() => {
-      const res = feeService.updateBursarProfile({
-        full_name: bursarName,
-        email: bursarEmail,
-        phone: bursarPhone,
-        password: bursarPassword
-      });
-      setBursarLoading(false);
-      if (res.success) {
-        setBursarMsg({ type: 'success', text: res.message });
+    // 1. Update Bursar Profile in feeService and local storage
+    const res = feeService.updateBursarProfile({
+      full_name: bursarName,
+      email: bursarEmail,
+      phone: bursarPhone,
+      password: bursarPassword
+    });
+
+    // 2. Dispatch real onboarding credentials email via EmailJS
+    const emailRes = await emailService.sendBursarCredentialsEmail({
+      full_name: bursarName,
+      email: bursarEmail,
+      phone: bursarPhone,
+      password: bursarPassword
+    });
+
+    setBursarLoading(false);
+    if (res.success) {
+      if (emailRes.success) {
+        setBursarMsg({
+          type: 'success',
+          text: `Bursar account registered successfully! Official login credentials dispatched to ${bursarEmail} via EmailJS.`
+        });
+      } else {
+        setBursarMsg({
+          type: 'error',
+          text: `Bursar credentials saved, but real email dispatch failed: ${emailRes.error}. You can click "Resend Credentials Email" below to retry.`
+        });
       }
-    }, 400);
+    }
+  };
+
+  const handleResendCredentialsEmail = async () => {
+    if (!bursarEmail.trim()) {
+      setBursarMsg({ type: 'error', text: 'Please provide a valid Bursar email address.' });
+      return;
+    }
+
+    setEmailSending(true);
+    setBursarMsg(null);
+
+    const emailRes = await emailService.sendBursarCredentialsEmail({
+      full_name: bursarName,
+      email: bursarEmail,
+      phone: bursarPhone,
+      password: bursarPassword
+    });
+
+    setEmailSending(false);
+    if (emailRes.success) {
+      setBursarMsg({
+        type: 'success',
+        text: `Official login credentials successfully dispatched to ${bursarEmail} via EmailJS!`
+      });
+    } else {
+      setBursarMsg({
+        type: 'error',
+        text: `Failed to send email to ${bursarEmail}: ${emailRes.error}`
+      });
+    }
   };
 
   return (
     <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-5">
-      <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+      <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-600" /> Bursary Staff & Account Management
+            <User className="w-5 h-5 text-indigo-600" /> Bursary Staff & Account Registration
           </h3>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Super Admin feature: Assign, update, or change the Bursar's profile and login credentials
+            Super Admin feature: Register, assign, and dispatch real login credentials to the Bursar via email
           </p>
         </div>
-        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-indigo-200/60">
+        <span className="self-start sm:self-auto px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-indigo-200/60">
           Super Admin Privileged
         </span>
       </div>
 
       {bursarMsg && (
-        <div className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 border ${
+        <div className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 border ${
           bursarMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
         }`}>
           {bursarMsg.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           )}
-          <span>{bursarMsg.text}</span>
+          <span className="leading-relaxed">{bursarMsg.text}</span>
         </div>
       )}
 
@@ -336,6 +386,7 @@ const BursarManagementCard: React.FC<BursarCardProps> = ({ initialBursar }) => {
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500/30 focus:bg-white"
               placeholder="e.g. bursary@solidfoundationhigh.edu.ng"
             />
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Real welcome email with password will be sent here</p>
           </div>
 
           <div>
@@ -366,14 +417,26 @@ const BursarManagementCard: React.FC<BursarCardProps> = ({ initialBursar }) => {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={bursarLoading}
-          className="py-3 px-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs rounded-2xl shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>{bursarLoading ? 'Saving Bursar Credentials...' : 'Save Bursar Credentials'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={bursarLoading || emailSending}
+            className="py-3 px-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs rounded-2xl shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>{bursarLoading ? 'Registering & Dispatching Email...' : 'Save & Send Bursar Email'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResendCredentialsEmail}
+            disabled={bursarLoading || emailSending}
+            className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{emailSending ? 'Sending Real Email...' : 'Resend Credentials Email'}</span>
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -7,6 +7,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 
 import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -91,6 +92,7 @@ export function App() {
               <Route path="/login/bursar" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/login/parent" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/login/student" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+              <Route path="/register" element={<RegisterPage onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
               {/* Protected Admin & Bursar Routes */}

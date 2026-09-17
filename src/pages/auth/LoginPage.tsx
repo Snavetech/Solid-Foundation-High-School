@@ -160,6 +160,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
 
+            <div className="text-center pt-1">
+              <span className="text-xs text-slate-500">Need to register a new student? </span>
+              <Link to="/register" className="text-xs font-bold text-violet-600 hover:text-violet-700 underline">
+                Online Registration
+              </Link>
+            </div>
           </form>
 
           {/* Preset Demo Logins */}
