@@ -96,8 +96,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Verified Stamp Badge */}
               <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/40 rounded-2xl px-4 py-2 text-right shrink-0 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-500/30">
-                  ✓
+                <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/30">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300 block">PAYMENT STATUS</span>

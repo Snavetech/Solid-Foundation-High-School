@@ -221,8 +221,8 @@ export const PaystackModal: React.FC<PaystackModalProps> = ({
           {/* Success Animated View */}
           {isSuccess && (
             <div className="py-8 flex flex-col items-center justify-center space-y-3 text-center animate-in zoom-in-95">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl shadow-lg">
-                ✓
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-lg">
+                <CheckCircle2 className="w-9 h-9 text-emerald-600" />
               </div>
               <h3 className="text-xl font-black text-slate-900">Payment Successful!</h3>
               <p className="text-xs text-slate-500 max-w-xs">

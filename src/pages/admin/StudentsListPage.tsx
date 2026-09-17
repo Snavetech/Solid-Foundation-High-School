@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { feeService } from '../../services/feeService';
 import { Student, SchoolClass, Guardian } from '../../types/database';
-import { Search, Plus, Filter, Eye, GraduationCap, X, Users, Mail, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, Plus, Filter, Eye, GraduationCap, X, Users, Mail, CheckCircle2, RefreshCw, AlertCircle, Key } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 
 export const StudentsListPage: React.FC = () => {
@@ -572,7 +572,10 @@ export const StudentsListPage: React.FC = () => {
 
               {/* Auto-provisioning info note */}
               <div className="p-3 bg-violet-50 border border-violet-200 rounded-xl text-[11px] text-violet-800 space-y-0.5">
-                <span className="font-bold block">🔑 Account Auto-Provisioning:</span>
+                <span className="font-bold flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                  Account Auto-Provisioning:
+                </span>
                 <span>The student will log in using their <strong className="font-mono">Admission Number</strong> with default password <strong className="font-mono">student123</strong>.</span>
               </div>
 
