@@ -46,6 +46,44 @@ function saveStorage<T>(key: string, data: T): void {
   }
 }
 
+const INITIAL_NOTIFICATIONS: SystemNotification[] = [
+  {
+    id: 'n-1',
+    title: '2025/2026 First Term Billing Live',
+    body: 'Academic term fee structures published by Bursary.',
+    time: '1 hour ago',
+    read: false,
+    type: 'billing'
+  },
+  {
+    id: 'n-2',
+    title: 'Paystack Gateway Active',
+    body: 'Parents can now pay online using Card, Bank Transfer, USSD & Bank Account.',
+    time: '3 hours ago',
+    read: false,
+    type: 'system'
+  }
+];
+
+const INITIAL_MESSAGES: SystemMessage[] = [
+  {
+    id: 'm-1',
+    sender: 'Bursary Department',
+    subject: 'First Term Fees Payment Advisory',
+    preview: 'Please ensure fee installments are completed before the mid-term break.',
+    time: '2 hours ago',
+    read: false
+  },
+  {
+    id: 'm-2',
+    sender: 'School Administration',
+    subject: 'Welcome to SFHS Smart Portal',
+    preview: 'Official digital portal for student fee tracking and instant receipts.',
+    time: 'Yesterday',
+    read: false
+  }
+];
+
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 type ChangeListener = () => void;
 
