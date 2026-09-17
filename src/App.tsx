@@ -29,16 +29,16 @@ import { PaymentHistoryPage } from './pages/parent/PaymentHistoryPage';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<Profile | null>(feeService.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<Profile | null>(() => feeService.getCurrentUser());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLoginSuccess = (role: UserRole) => {
-    const user = feeService.switchDemoUser(role);
-    setCurrentUser(user);
+  const handleLoginSuccess = (_role: UserRole) => {
+    setCurrentUser(feeService.getCurrentUser());
     setMobileMenuOpen(false);
   };
 
   const handleLogout = () => {
+    feeService.logout();
     setCurrentUser(null);
     setMobileMenuOpen(false);
   };
@@ -67,6 +67,22 @@ export function App() {
 
           <main className={`flex-1 min-w-0 ${currentUser ? 'p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full' : ''}`}>
             <Routes>
+              {/* Root Landing Route */}
+              <Route
+                path="/"
+                element={
+                  !currentUser ? (
+                    <Navigate to="/login" replace />
+                  ) : currentUser.role === 'parent' ? (
+                    <Navigate to="/parent/dashboard" replace />
+                  ) : currentUser.role === 'student' ? (
+                    <Navigate to="/student/dashboard" replace />
+                  ) : (
+                    <Navigate to="/admin/dashboard" replace />
+                  )
+                }
+              />
+
               {/* Unauthenticated Routes & Role-Specific Login Routes */}
               <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/login/admin" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />

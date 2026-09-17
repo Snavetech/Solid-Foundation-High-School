@@ -14,8 +14,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [searchParams] = useSearchParams();
   const routeRole = searchParams.get('role') as UserRole | null;
 
-  const [identifier, setIdentifier] = useState('bursary@solidfoundationhigh.edu.ng');
-  const [password, setPassword] = useState('password123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 

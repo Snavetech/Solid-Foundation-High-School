@@ -93,7 +93,7 @@ class FeeService {
   private receipts: Receipt[];
   private notifications: SystemNotification[];
   private messages: SystemMessage[];
-  private currentUser: Profile;
+  private currentUser: Profile | null;
 
   constructor() {
     this.profiles = loadStorage(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
@@ -106,7 +106,7 @@ class FeeService {
     this.receipts = loadStorage(STORAGE_KEYS.RECEIPTS, INITIAL_RECEIPTS);
     this.notifications = loadStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
     this.messages = loadStorage(STORAGE_KEYS.MESSAGES, INITIAL_MESSAGES);
-    this.currentUser = loadStorage(STORAGE_KEYS.CURRENT_USER, INITIAL_PROFILES[0]);
+    this.currentUser = loadStorage<Profile | null>(STORAGE_KEYS.CURRENT_USER, null);
 
     // Save initial load
     this.persistAll();
@@ -123,12 +123,27 @@ class FeeService {
     saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
     saveStorage(STORAGE_KEYS.NOTIFICATIONS, this.notifications);
     saveStorage(STORAGE_KEYS.MESSAGES, this.messages);
-    saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    if (this.currentUser) {
+      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    } else {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      } catch (e) {}
+    }
   }
 
   // --- AUTH & ROLE METHODS ---
-  getCurrentUser(): Profile {
+  getCurrentUser(): Profile | null {
     return this.currentUser;
+  }
+
+  logout(): void {
+    this.currentUser = null;
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    } catch (e) {
+      console.error('Failed to clear current user', e);
+    }
   }
 
   getSchoolInfo(): SchoolInfo {
@@ -333,6 +348,9 @@ class FeeService {
   }
 
   changePassword(currentPassword: string, newPassword: string): { success: boolean; message: string } {
+    if (!this.currentUser) {
+      return { success: false, message: 'No active session found.' };
+    }
     if (!newPassword || newPassword.length < 6) {
       return { success: false, message: 'New password must be at least 6 characters long.' };
     }
