@@ -43,6 +43,13 @@ export const emailService = {
       email: toEmail,
       user_email: toEmail,
       recipient_email: toEmail,
+      recipient: toEmail,
+      to: toEmail,
+
+      // Sender & subject
+      from_name: 'Solid Foundation Comprehensive High School',
+      reply_to: 'bursary@solidfoundationhigh.edu.ng',
+      subject: 'Official Bursar Account Provisioning & Login Credentials',
 
       // Recipient name aliases
       to_name: params.full_name.trim(),
@@ -109,6 +116,12 @@ export const emailService = {
       email: toEmail,
       user_email: toEmail,
       recipient_email: toEmail,
+      recipient: toEmail,
+      to: toEmail,
+
+      from_name: 'Solid Foundation Comprehensive High School',
+      reply_to: 'bursary@solidfoundationhigh.edu.ng',
+      subject: `Welcome to Solid Foundation High School - Student Admission Credentials`,
 
       to_name: params.guardian_name.trim(),
       name: params.guardian_name.trim(),
@@ -167,6 +180,12 @@ export const emailService = {
       email: toEmail,
       user_email: toEmail,
       recipient_email: toEmail,
+      recipient: toEmail,
+      to: toEmail,
+
+      from_name: 'Solid Foundation Comprehensive High School',
+      reply_to: 'bursary@solidfoundationhigh.edu.ng',
+      subject: `Parent Portal Access Credentials - Solid Foundation High School`,
 
       to_name: params.guardian_name.trim(),
       name: params.guardian_name.trim(),
