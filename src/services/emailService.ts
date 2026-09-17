@@ -1,23 +1,32 @@
 import emailjs from '@emailjs/browser';
 
+const cleanEnv = (val?: string): string => {
+  if (!val) return '';
+  return val.trim().replace(/^["']|["']$/g, '').trim();
+};
+
 const getInitialConfig = () => {
+  const envService = cleanEnv(import.meta.env.VITE_EMAILJS_SERVICE_ID);
+  const envTemplate = cleanEnv(import.meta.env.VITE_EMAILJS_TEMPLATE_ID);
+  const envPublic = cleanEnv(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+
   if (typeof window !== 'undefined') {
     try {
       const saved = localStorage.getItem('sfhs_emailjs_config');
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          serviceId: parsed.serviceId || import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_9whclxh',
-          templateId: parsed.templateId || import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bpnxfea',
-          publicKey: parsed.publicKey || import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M',
+          serviceId: cleanEnv(parsed.serviceId) || envService || 'service_9whclxh',
+          templateId: cleanEnv(parsed.templateId) || envTemplate || 'template_bpnxfea',
+          publicKey: cleanEnv(parsed.publicKey) || envPublic || 'w7Cte7CcydMY36F8M',
         };
       }
     } catch (e) {}
   }
   return {
-    serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_9whclxh',
-    templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_bpnxfea',
-    publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'w7Cte7CcydMY36F8M'
+    serviceId: envService || 'service_9whclxh',
+    templateId: envTemplate || 'template_bpnxfea',
+    publicKey: envPublic || 'w7Cte7CcydMY36F8M'
   };
 };
 
