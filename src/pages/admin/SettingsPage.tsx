@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { emailService, updateEmailJSConfig } from '../../services/emailService';
@@ -14,6 +14,14 @@ export const SettingsPage: React.FC = () => {
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (!currentUser) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xs">
+        <p className="text-slate-500 font-bold">Please log in to view portal settings.</p>
+      </div>
+    );
+  }
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();

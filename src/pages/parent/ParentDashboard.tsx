@@ -10,7 +10,7 @@ import {
 
 export const ParentDashboard: React.FC = () => {
   const currentUser = feeService.getCurrentUser();
-  const guardian = feeService.getGuardianByProfileId(currentUser.id) || feeService.getGuardians()[0];
+  const guardian = (currentUser ? feeService.getGuardianByProfileId(currentUser.id) : null) || feeService.getGuardians()[0];
   const wards = feeService.getStudentsByGuardian(guardian.id);
   const [selectedReceipt, setSelectedReceipt] = useState<{ payment: Payment; receipt: Receipt } | null>(null);
 

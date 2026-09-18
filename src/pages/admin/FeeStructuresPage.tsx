@@ -5,7 +5,7 @@ import { CreditCard, Plus, Trash2, Check, AlertCircle, Lock, ShieldCheck } from 
 
 export const FeeStructuresPage: React.FC = () => {
   const currentUser = feeService.getCurrentUser();
-  const isSuperAdmin = currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
   const [feeStructures, setFeeStructures] = useState(feeService.getFeeStructures());
   const [selectedClassId, setSelectedClassId] = useState(feeService.getClasses()[0]?.id || '');

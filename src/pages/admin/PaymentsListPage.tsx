@@ -11,7 +11,7 @@ export const PaymentsListPage: React.FC = () => {
   const [selectedReceipt, setSelectedReceipt] = useState<{ payment: Payment; receipt: Receipt } | null>(null);
 
   const currentUser = feeService.getCurrentUser();
-  const isSuperAdmin = currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
   const [payments, setPayments] = useState<Payment[]>(feeService.getPayments());
 
