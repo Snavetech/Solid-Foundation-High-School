@@ -600,6 +600,17 @@ class FeeService {
     }
     this.guardians = uniqueGuardians;
 
+    // Cross-reference any unlinked guardians with existing profiles by email
+    for (const g of this.guardians) {
+      if (g.email) {
+        const cleanEmail = g.email.trim().toLowerCase();
+        const matchingProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === cleanEmail);
+        if (matchingProfile && !g.profile_id) {
+          g.profile_id = matchingProfile.id;
+        }
+      }
+    }
+
     // 4. Deduplicate Fee Structures by (class_id + session_term_id + fee_item)
     const fsMap = new Map<string, FeeStructure>();
     for (const f of this.feeStructures) {
@@ -616,6 +627,33 @@ class FeeService {
     return this.currentUser;
   }
 
+  setCurrentUser(profile: Profile | null): void {
+    this.currentUser = profile;
+    if (profile) {
+      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    } else {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      } catch (e) {
+        console.error('Failed to clear current user', e);
+      }
+    }
+    this.notifyListeners();
+  }
+
+  getProfiles(): Profile[] {
+    return [...this.profiles];
+  }
+
+  getProfileById(id: string): Profile | undefined {
+    return this.profiles.find(p => p.id === id);
+  }
+
+  getProfileByEmail(email: string): Profile | undefined {
+    const clean = email.trim().toLowerCase();
+    return this.profiles.find(p => p.email && p.email.toLowerCase() === clean);
+  }
+
   logout(): void {
     this.currentUser = null;
     try {
@@ -623,6 +661,7 @@ class FeeService {
     } catch (e) {
       console.error('Failed to clear current user', e);
     }
+    this.notifyListeners();
   }
 
   getSchoolInfo(): SchoolInfo {
@@ -742,7 +781,67 @@ class FeeService {
     const trimmed = identifier.trim().toLowerCase();
     const cleanIdentifier = trimmed.replace(/[^a-z0-9]/g, '');
 
-    // 1. Check by admission number (Student)
+    // Helper to check password
+    const checkPassword = (profile: Profile): boolean => {
+      if (!pass) return true;
+      const expectedPass = profile.password || (
+        profile.role === 'student' ? 'student123' :
+        profile.role === 'parent' ? 'parent123' :
+        'password123'
+      );
+      return pass === expectedPass;
+    };
+
+    // 1. Direct check in profiles (by email, admission_no, or exact username match)
+    const directProfile = this.profiles.find(p => 
+      (p.email && p.email.toLowerCase() === trimmed) ||
+      (p.admission_no && p.admission_no.toLowerCase() === trimmed) ||
+      (p.admission_no && p.admission_no.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanIdentifier)
+    );
+
+    if (directProfile) {
+      if (!checkPassword(directProfile)) {
+        return { success: false, role: directProfile.role, profile: directProfile, message: 'Invalid password provided.' };
+      }
+      this.currentUser = directProfile;
+      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+      this.notifyListeners();
+      return { success: true, role: directProfile.role, profile: this.currentUser };
+    }
+
+    // 2. Check by parent email in guardians list
+    const guardianByEmail = this.guardians.find(g => g.email && g.email.toLowerCase() === trimmed);
+    if (guardianByEmail) {
+      let parentProfile = this.profiles.find(p => p.role === 'parent' && p.email?.toLowerCase() === guardianByEmail.email?.toLowerCase());
+      if (!parentProfile && guardianByEmail.profile_id) {
+        parentProfile = this.profiles.find(p => p.id === guardianByEmail.profile_id);
+      }
+      if (!parentProfile) {
+        parentProfile = {
+          id: guardianByEmail.profile_id || `p-par-${guardianByEmail.id}`,
+          full_name: guardianByEmail.full_name,
+          role: 'parent',
+          email: guardianByEmail.email,
+          phone: guardianByEmail.phone,
+          password: 'parent123'
+        };
+        this.profiles.push(parentProfile);
+        saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+      }
+      if (!guardianByEmail.profile_id) {
+        guardianByEmail.profile_id = parentProfile.id;
+        saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
+      }
+      if (!checkPassword(parentProfile)) {
+        return { success: false, role: 'parent', profile: parentProfile, message: 'Invalid password provided.' };
+      }
+      this.currentUser = parentProfile;
+      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+      this.notifyListeners();
+      return { success: true, role: 'parent', profile: this.currentUser };
+    }
+
+    // 3. Check by student admission number in students list
     const studentByAdm = this.students.find(s => {
       const sClean = s.admission_no.toLowerCase().replace(/[^a-z0-9]/g, '');
       return s.admission_no.toLowerCase() === trimmed || 
@@ -751,7 +850,7 @@ class FeeService {
     });
 
     if (studentByAdm) {
-      let studentProfile = this.profiles.find(p => p.role === 'student' && (p.admission_no === studentByAdm.admission_no || p.id === 'p-student-1'));
+      let studentProfile = this.profiles.find(p => p.role === 'student' && p.admission_no?.toLowerCase() === studentByAdm.admission_no.toLowerCase());
       if (!studentProfile) {
         studentProfile = {
           id: `p-std-${studentByAdm.id}`,
@@ -761,76 +860,65 @@ class FeeService {
           password: 'student123'
         };
         this.profiles.push(studentProfile);
-      } else {
-        studentProfile.admission_no = studentByAdm.admission_no;
-        studentProfile.full_name = studentByAdm.full_name;
+        saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+      }
+      if (!checkPassword(studentProfile)) {
+        return { success: false, role: 'student', profile: studentProfile, message: 'Invalid password provided.' };
       }
       this.currentUser = studentProfile;
       saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
-      saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
+      this.notifyListeners();
       return { success: true, role: 'student', profile: this.currentUser };
     }
 
-    // 2. Check by parent email (Parent)
-    const guardianByEmail = this.guardians.find(g => g.email && g.email.toLowerCase() === trimmed);
-    if (guardianByEmail) {
-      let parentProfile = this.profiles.find(p => p.role === 'parent' && (p.email === guardianByEmail.email || p.id === 'p-parent-1'));
-      if (!parentProfile) {
-        parentProfile = {
-          id: `p-par-${guardianByEmail.id}`,
-          full_name: guardianByEmail.full_name,
-          role: 'parent',
-          email: guardianByEmail.email,
-          password: 'parent123'
-        };
-        this.profiles.push(parentProfile);
-      }
-      this.currentUser = parentProfile;
-      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
-      saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
-      return { success: true, role: 'parent', profile: this.currentUser };
+    // 4. Quick shortcut keywords strictly for demo testing
+    if (['admin', 'super_admin', 'bursar', 'bursary', 'student', 'parent'].includes(trimmed)) {
+      let role: UserRole = 'bursar';
+      if (trimmed === 'admin' || trimmed === 'super_admin') role = 'super_admin';
+      else if (trimmed === 'bursar' || trimmed === 'bursary') role = 'bursar';
+      else if (trimmed === 'student') role = 'student';
+      else if (trimmed === 'parent') role = 'parent';
+
+      const switched = this.switchDemoUser(role);
+      return { success: true, role, profile: switched };
     }
 
-    // 3. Check by existing profile email or admission no
-    const profileMatch = this.profiles.find(p => 
-      (p.email && p.email.toLowerCase() === trimmed) ||
-      (p.admission_no && p.admission_no.toLowerCase() === trimmed)
-    );
-
-    if (profileMatch) {
-      this.currentUser = profileMatch;
-      saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
-      return { success: true, role: profileMatch.role, profile: this.currentUser };
-    }
-
-    // 4. Fallback role switch
-    let role: UserRole = 'bursar';
-    if (trimmed.includes('admin')) role = 'super_admin';
-    else if (trimmed.includes('bursar') || trimmed.includes('bursary')) role = 'bursar';
-    else if (trimmed.includes('student')) role = 'student';
-    else if (trimmed.includes('parent') || trimmed.includes('gmail') || trimmed.includes('@')) role = 'parent';
-
-    const switched = this.switchDemoUser(role);
-    return { success: true, role, profile: switched };
+    return { 
+      success: false, 
+      role: 'parent', 
+      profile: this.profiles[0], 
+      message: 'Account not found. Please verify your email or student admission number.' 
+    };
   }
 
   switchDemoUser(role: UserRole): Profile {
-    let target = this.profiles.find(p => p.role === role);
+    const demoId = role === 'super_admin' ? 'p-admin-1' :
+                   role === 'bursar' ? 'p-bursar-1' :
+                   role === 'parent' ? 'p-parent-1' :
+                   'p-student-1';
+    let target = this.profiles.find(p => p.id === demoId || p.id === `p-demo-${role}`);
     if (!target) {
       target = {
-        id: `p-demo-${role}`,
+        id: demoId,
         full_name: role === 'super_admin' ? 'Dr. Emmanuel Okonkwo' : 
                    role === 'bursar' ? 'Mrs. Grace Nwosu' : 
                    role === 'parent' ? 'Engr. Patrick Chukwuma' : 
                    'Chukwuma David Kenechukwu',
         role: role,
+        email: role === 'super_admin' ? 'admin@solidfoundationhigh.edu.ng' :
+               role === 'bursar' ? 'bursary@solidfoundationhigh.edu.ng' :
+               role === 'parent' ? 'patrick.chukwuma@gmail.com' :
+               'david.chukwuma@student.sfhs.edu.ng',
         phone: '08000000000',
+        admission_no: role === 'student' ? 'SFHS/2026/001' : undefined,
         password: role === 'student' ? 'student123' : role === 'parent' ? 'parent123' : 'password123'
       };
       this.profiles.push(target);
+      saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
     }
     this.currentUser = target;
     saveStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    this.notifyListeners();
     return this.currentUser;
   }
 
@@ -938,7 +1026,17 @@ class FeeService {
   }
 
   getGuardianByProfileId(profileId: string): Guardian | undefined {
-    return this.guardians.find(g => g.profile_id === profileId);
+    const byProfileId = this.guardians.find(g => g.profile_id === profileId);
+    if (byProfileId) return byProfileId;
+
+    const profile = this.profiles.find(p => p.id === profileId);
+    if (profile?.email) {
+      const cleanEmail = profile.email.toLowerCase();
+      const byEmail = this.guardians.find(g => g.email && g.email.toLowerCase() === cleanEmail);
+      if (byEmail) return byEmail;
+    }
+
+    return undefined;
   }
 
   addGuardian(
@@ -949,30 +1047,60 @@ class FeeService {
     student_name?: string,
     admission_no?: string
   ): Guardian {
-    const newGuardian: Guardian = {
-      id: `g-${Date.now()}`,
-      full_name,
-      phone,
-      email,
-      relationship,
-      created_at: new Date().toISOString()
-    };
-    this.guardians.push(newGuardian);
+    const guardianId = `g-${Date.now()}`;
+    const profileId = email ? `p-par-${guardianId}` : undefined;
+
+    let targetGuardian: Guardian;
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const existingGuardianIndex = cleanEmail ? this.guardians.findIndex(g => g.email && g.email.toLowerCase() === cleanEmail) : -1;
+
+    if (existingGuardianIndex !== -1) {
+      this.guardians[existingGuardianIndex] = {
+        ...this.guardians[existingGuardianIndex],
+        full_name,
+        phone: phone || this.guardians[existingGuardianIndex].phone,
+        relationship: relationship || this.guardians[existingGuardianIndex].relationship,
+        profile_id: this.guardians[existingGuardianIndex].profile_id || profileId
+      };
+      targetGuardian = this.guardians[existingGuardianIndex];
+    } else {
+      targetGuardian = {
+        id: guardianId,
+        profile_id: profileId,
+        full_name,
+        phone,
+        email,
+        relationship,
+        created_at: new Date().toISOString()
+      };
+      this.guardians.push(targetGuardian);
+    }
     saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
 
     let parentProfile: Profile | null = null;
     // Auto-provision parent login account
     if (email) {
-      parentProfile = {
-        id: `p-par-${newGuardian.id}`,
-        full_name,
-        role: 'parent',
-        phone,
-        email,
-        password: 'parent123',
-        created_at: new Date().toISOString()
-      };
-      this.profiles.push(parentProfile);
+      const existingProfileIndex = this.profiles.findIndex(p => p.email && p.email.toLowerCase() === cleanEmail);
+      if (existingProfileIndex !== -1) {
+        this.profiles[existingProfileIndex] = {
+          ...this.profiles[existingProfileIndex],
+          full_name,
+          phone: phone || this.profiles[existingProfileIndex].phone,
+          role: 'parent'
+        };
+        parentProfile = this.profiles[existingProfileIndex];
+      } else {
+        parentProfile = {
+          id: targetGuardian.profile_id || profileId || `p-par-${targetGuardian.id}`,
+          full_name,
+          role: 'parent',
+          phone,
+          email,
+          password: 'parent123',
+          created_at: new Date().toISOString()
+        };
+        this.profiles.push(parentProfile);
+      }
       saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
 
       // Dispatch automated Welcome & Registration Confirmation Email
@@ -1006,14 +1134,14 @@ class FeeService {
 
     // Sync to Supabase cloud
     if (!isDemoMode) {
-      supabase.from('guardians').insert(newGuardian).then(() => {});
+      supabase.from('guardians').upsert(targetGuardian).then(() => {});
       if (parentProfile) {
         supabase.from('profiles').upsert(parentProfile).then(() => {});
       }
     }
 
     this.notifyListeners();
-    return newGuardian;
+    return targetGuardian;
   }
 
   // --- STUDENTS ---

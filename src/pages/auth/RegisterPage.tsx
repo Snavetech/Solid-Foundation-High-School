@@ -75,7 +75,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
       setEmailStatus('error');
     }
 
-    feeService.switchDemoUser('parent');
+    const newProfile = feeService.getProfileByEmail(email) || 
+      (guardian.profile_id ? feeService.getProfileById(guardian.profile_id) : null);
+    if (newProfile) {
+      feeService.setCurrentUser(newProfile);
+    }
     setLoading(false);
     setRegisteredInfo({
       fullName,
@@ -86,7 +90,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onLoginSuccess }) =>
   };
 
   const handleProceedToDashboard = () => {
-    onLoginSuccess('parent');
+    const activeUser = feeService.getCurrentUser();
+    onLoginSuccess(activeUser?.role || 'parent');
     navigate('/parent/dashboard');
   };
 

@@ -10,8 +10,9 @@ import {
 
 export const ParentDashboard: React.FC = () => {
   const currentUser = feeService.getCurrentUser();
-  const guardian = (currentUser ? feeService.getGuardianByProfileId(currentUser.id) : null) || feeService.getGuardians()[0];
-  const wards = feeService.getStudentsByGuardian(guardian.id);
+  const guardian = (currentUser ? feeService.getGuardianByProfileId(currentUser.id) : null) || 
+    (currentUser ? { id: `g-${currentUser.id}`, profile_id: currentUser.id, full_name: currentUser.full_name, email: currentUser.email, phone: currentUser.phone } as any : feeService.getGuardians()[0]);
+  const wards = guardian ? feeService.getStudentsByGuardian(guardian.id) : [];
   const [selectedReceipt, setSelectedReceipt] = useState<{ payment: Payment; receipt: Receipt } | null>(null);
 
   const handleOpenReceipt = (payment: Payment) => {

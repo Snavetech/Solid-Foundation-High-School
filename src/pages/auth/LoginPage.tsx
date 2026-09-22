@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { UserRole } from '../../types/database';
@@ -159,13 +159,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               {loading ? 'Authenticating...' : 'Sign In to Portal'}
               <ArrowRight className="w-4 h-4" />
             </button>
-
-            <div className="text-center pt-1">
-              <span className="text-xs text-slate-500">Need to register a new student? </span>
-              <Link to="/register" className="text-xs font-bold text-violet-600 hover:text-violet-700 underline">
-                Online Registration
-              </Link>
-            </div>
           </form>
 
           {/* Preset Demo Logins */}
