@@ -3,20 +3,40 @@ import { Payment, Receipt, StudentFeeSummary } from '../types/database';
 import { SCHOOL_INFO } from '../services/mockData';
 
 async function getLogoBase64(): Promise<string | null> {
+  // Try direct fetch first (avoids crossOrigin canvas tainting)
+  try {
+    const res = await fetch('/logo.png');
+    if (res.ok) {
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch (e) {
+    // Fall back to Image element method below
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } else {
-        resolve(null);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+          return;
+        }
+      } catch (err) {
+        // canvas tainted or other issue
       }
+      resolve(null);
     };
     img.onerror = () => resolve(null);
     img.src = '/logo.png';

@@ -13,15 +13,88 @@
 }
 
 @media print {
-  body {
-    background-color: white !important;
-    color: black !important;
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
   }
+
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* When the receipt modal is active, completely hide the entire main web application */
+  body.has-receipt-modal #root,
+  body:has(#receipt-modal-portal) #root {
+    display: none !important;
+  }
+
+  /* Hide interactive actions and modal header in print */
   .no-print {
     display: none !important;
   }
+
   .print-only {
     display: block !important;
+  }
+
+  /* Flatten modal wrapper and remove fixed backdrop in print */
+  #receipt-modal-portal {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  #receipt-modal-card {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  /* Constrain receipt body to strictly fit on one single page */
+  #printable-receipt {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-receipt > * {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 
