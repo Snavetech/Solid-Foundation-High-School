@@ -46,6 +46,100 @@ function saveStorage<T>(key: string, data: T): void {
   }
 }
 
+// Helpers to strip joined nested objects before sending records to Supabase tables (prevents PGRST204 errors)
+function cleanStudentForCloud(s: Student): any {
+  return {
+    id: s.id,
+    admission_no: s.admission_no,
+    full_name: s.full_name,
+    class_id: s.class_id,
+    guardian_id: s.guardian_id,
+    status: s.status || 'active',
+    photo_url: s.photo_url || null,
+    created_at: s.created_at || new Date().toISOString()
+  };
+}
+
+function cleanClassForCloud(c: SchoolClass): any {
+  return {
+    id: c.id,
+    name: c.name,
+    arm: c.arm || null,
+    created_at: c.created_at || new Date().toISOString()
+  };
+}
+
+function cleanSessionForCloud(s: SessionTerm): any {
+  return {
+    id: s.id,
+    session: s.session,
+    term: s.term,
+    is_current: Boolean(s.is_current),
+    created_at: s.created_at || new Date().toISOString()
+  };
+}
+
+function cleanGuardianForCloud(g: Guardian): any {
+  return {
+    id: g.id,
+    profile_id: g.profile_id || null,
+    full_name: g.full_name,
+    phone: g.phone || null,
+    email: g.email || null,
+    relationship: g.relationship || null,
+    created_at: g.created_at || new Date().toISOString()
+  };
+}
+
+function cleanFeeStructureForCloud(f: FeeStructure): any {
+  return {
+    id: f.id,
+    class_id: f.class_id,
+    session_term_id: f.session_term_id,
+    fee_item: f.fee_item,
+    amount: f.amount,
+    is_compulsory: f.is_compulsory !== false,
+    created_at: f.created_at || new Date().toISOString()
+  };
+}
+
+function cleanPaymentForCloud(p: Payment): any {
+  return {
+    id: p.id,
+    student_id: p.student_id,
+    fee_structure_id: p.fee_structure_id || null,
+    amount: p.amount,
+    method: p.method,
+    reference: p.reference,
+    status: p.status || 'success',
+    recorded_by: p.recorded_by || null,
+    paid_at: p.paid_at || new Date().toISOString()
+  };
+}
+
+function cleanReceiptForCloud(r: Receipt): any {
+  return {
+    id: r.id,
+    payment_id: r.payment_id,
+    receipt_no: r.receipt_no,
+    pdf_url: r.pdf_url || null,
+    issued_at: r.issued_at || new Date().toISOString()
+  };
+}
+
+function cleanProfileForCloud(p: Profile): any {
+  return {
+    id: p.id,
+    full_name: p.full_name,
+    role: p.role,
+    phone: p.phone || null,
+    email: p.email || null,
+    admission_no: p.admission_no || null,
+    password: p.password || null,
+    created_at: p.created_at || new Date().toISOString()
+  };
+}
+
 const INITIAL_NOTIFICATIONS: SystemNotification[] = [
   {
     id: 'n-1',
@@ -105,6 +199,8 @@ class FeeService {
   private syncErrorMessage: string | null = null;
   private realtimeChannel: any = null;
   private hasInitializedCloud: boolean = false;
+  private cloudStudentCount: number | null = null;
+  private lastSyncedAt: Date | null = null;
 
   constructor() {
     this.profiles = loadStorage(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
@@ -149,6 +245,14 @@ class FeeService {
 
   getSyncStatus(): { status: SyncStatus; errorMessage: string | null } {
     return { status: this.syncStatus, errorMessage: this.syncErrorMessage };
+  }
+
+  getCloudStats(): { localStudents: number; cloudStudents: number | null; lastSynced: Date | null } {
+    return {
+      localStudents: this.students.filter(s => !s.id.startsWith('d0000000-')).length,
+      cloudStudents: this.cloudStudentCount,
+      lastSynced: this.lastSyncedAt
+    };
   }
 
   // --- SUPABASE CLOUD INITIALIZATION & REALTIME CHANNEL ---
@@ -219,9 +323,14 @@ class FeeService {
       const cloudHasStudents = studentsRes.data && studentsRes.data.length > 0;
       const cloudHasClasses = classesRes.data && classesRes.data.length > 0;
 
+      this.lastSyncedAt = new Date();
+      if (studentsRes.data) {
+        this.cloudStudentCount = (studentsRes.data as Student[]).filter(s => !s.id.startsWith('d0000000-')).length;
+      }
+
       if (!cloudHasClasses && !cloudHasStudents && !this.hasInitializedCloud) {
-        console.log('Remote Supabase tables empty, seeding initial records...');
-        await this.seedCloudDatabase();
+        console.log('Remote Supabase tables empty, pushing initial seed...');
+        await this.pushLocalDataToCloud();
         this.hasInitializedCloud = true;
         this.syncStatus = 'synced';
         this.syncErrorMessage = null;
@@ -230,35 +339,56 @@ class FeeService {
       }
 
       // Ingest and union-merge remote data into memory & local cache
-      // This guarantees all 150 students, 94 guardians, classes, and payments are preserved
+      // 1. Classes
       if (classesRes.data && classesRes.data.length > 0) {
-        const classMap = new Map(this.classes.map(c => [c.id, c]));
-        classesRes.data.forEach((c: SchoolClass) => classMap.set(c.id, { ...classMap.get(c.id), ...c }));
+        const remoteClasses = (classesRes.data as SchoolClass[]).filter(c => !c.id.startsWith('b0000000-'));
+        const classMap = new Map(this.classes.filter(c => !c.id.startsWith('b0000000-')).map(c => [c.id, c]));
+        remoteClasses.forEach((c: SchoolClass) => classMap.set(c.id, { ...classMap.get(c.id), ...c }));
         this.classes = Array.from(classMap.values());
         saveStorage(STORAGE_KEYS.CLASSES, this.classes);
       }
 
+      // 2. Sessions
       if (sessionsRes.data && sessionsRes.data.length > 0) {
-        const sessionMap = new Map(this.sessions.map(s => [s.id, s]));
-        sessionsRes.data.forEach((s: SessionTerm) => sessionMap.set(s.id, { ...sessionMap.get(s.id), ...s }));
+        const remoteSessions = (sessionsRes.data as SessionTerm[]).filter(s => !s.id.startsWith('a0000000-'));
+        const sessionMap = new Map(this.sessions.filter(s => !s.id.startsWith('a0000000-')).map(s => [s.id, s]));
+        remoteSessions.forEach((s: SessionTerm) => sessionMap.set(s.id, { ...sessionMap.get(s.id), ...s }));
         this.sessions = Array.from(sessionMap.values());
         saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
       }
 
+      // 3. Guardians
       if (guardiansRes.data && guardiansRes.data.length > 0) {
-        const guardianMap = new Map(this.guardians.map(g => [g.id, g]));
-        guardiansRes.data.forEach((g: Guardian) => guardianMap.set(g.id, { ...guardianMap.get(g.id), ...g }));
+        const remoteGuardians = (guardiansRes.data as Guardian[]).filter(g => !g.id.startsWith('c0000000-'));
+        const guardianMap = new Map(this.guardians.filter(g => !g.id.startsWith('c0000000-')).map(g => [g.id, g]));
+        remoteGuardians.forEach((g: Guardian) => guardianMap.set(g.id, { ...guardianMap.get(g.id), ...g }));
         this.guardians = Array.from(guardianMap.values());
         saveStorage(STORAGE_KEYS.GUARDIANS, this.guardians);
       }
 
+      // 4. Students (deduplicate strictly by normalized admission_no to prevent 150 -> 152 ghost count)
       if (studentsRes.data && studentsRes.data.length > 0) {
-        const studentMap = new Map(this.students.map(s => [s.id, s]));
-        studentsRes.data.forEach((s: Student) => studentMap.set(s.id, { ...studentMap.get(s.id), ...s }));
+        const remoteStudents = (studentsRes.data as Student[]).filter(s => !s.id.startsWith('d0000000-'));
+        const studentMap = new Map<string, Student>();
+        
+        // Populate with current non-dummy local students first
+        this.students.filter(s => !s.id.startsWith('d0000000-')).forEach(s => {
+          const key = (s.admission_no || s.id).trim().toLowerCase();
+          studentMap.set(key, s);
+        });
+
+        // Merge remote students (matching admission numbers are updated, new ones added)
+        remoteStudents.forEach((s: Student) => {
+          const key = (s.admission_no || s.id).trim().toLowerCase();
+          const existing = studentMap.get(key);
+          studentMap.set(key, existing ? { ...existing, ...s } : s);
+        });
+
         this.students = Array.from(studentMap.values());
         saveStorage(STORAGE_KEYS.STUDENTS, this.students);
       }
 
+      // 5. Fee Structures
       if (feeStructsRes.data && feeStructsRes.data.length > 0) {
         const fsMap = new Map(this.feeStructures.map(f => [f.id, f]));
         feeStructsRes.data.forEach((f: FeeStructure) => fsMap.set(f.id, { ...fsMap.get(f.id), ...f }));
@@ -266,20 +396,23 @@ class FeeService {
         saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
       }
 
+      // 6. Payments
       if (paymentsRes.data && paymentsRes.data.length > 0) {
-        const payMap = new Map(this.payments.map(p => [p.id, p]));
-        paymentsRes.data.forEach((p: Payment) => payMap.set(p.id, { ...payMap.get(p.id), ...p }));
+        const payMap = new Map(this.payments.map(p => [p.reference || p.id, p]));
+        paymentsRes.data.forEach((p: Payment) => payMap.set(p.reference || p.id, { ...payMap.get(p.reference || p.id), ...p }));
         this.payments = Array.from(payMap.values());
         saveStorage(STORAGE_KEYS.PAYMENTS, this.payments);
       }
 
+      // 7. Receipts
       if (receiptsRes.data && receiptsRes.data.length > 0) {
-        const recMap = new Map(this.receipts.map(r => [r.id, r]));
-        receiptsRes.data.forEach((r: Receipt) => recMap.set(r.id, { ...recMap.get(r.id), ...r }));
+        const recMap = new Map(this.receipts.map(r => [r.receipt_no || r.id, r]));
+        receiptsRes.data.forEach((r: Receipt) => recMap.set(r.receipt_no || r.id, { ...recMap.get(r.receipt_no || r.id), ...r }));
         this.receipts = Array.from(recMap.values());
         saveStorage(STORAGE_KEYS.RECEIPTS, this.receipts);
       }
 
+      // 8. Profiles
       if (profilesRes.data && profilesRes.data.length > 0) {
         const profileMap = new Map(this.profiles.map(p => [p.id, p]));
         profilesRes.data.forEach((p: Profile) => profileMap.set(p.id, { ...profileMap.get(p.id), ...p }));
@@ -287,7 +420,23 @@ class FeeService {
         saveStorage(STORAGE_KEYS.PROFILES, this.profiles);
       }
 
-      // Ensure no duplicate records (classes, sessions, guardians) were ingested
+      // Auto-Sync: Check if local storage has enrolled students not yet present in Supabase cloud (e.g. Device 1 has 159, cloud has fewer)
+      if (studentsRes.data) {
+        const remoteAdmSet = new Set((studentsRes.data as Student[]).map(s => (s.admission_no || '').trim().toLowerCase()));
+        const missingInCloud = this.students.filter(s => s.admission_no && !remoteAdmSet.has(s.admission_no.trim().toLowerCase()) && !s.id.startsWith('d0000000-'));
+        if (missingInCloud.length > 0) {
+          console.log(`[Auto-Sync] Detected ${missingInCloud.length} local students missing in Supabase cloud. Uploading now...`);
+          this.pushStudentsToCloud(missingInCloud).then(res => {
+            if (res.success) {
+              console.log(`[Auto-Sync] Successfully uploaded ${res.count} students to cloud.`);
+            }
+          }).catch(err => {
+            console.warn('[Auto-Sync] Background student push deferred:', err);
+          });
+        }
+      }
+
+      // Ensure no duplicate records (classes, sessions, guardians, students) were ingested
       this.sanitizeAndDeduplicate();
       this.persistAll();
 
@@ -338,7 +487,9 @@ class FeeService {
 
     if (table === 'students') {
       if (eventType === 'INSERT') {
-        if (!this.students.some(s => s.id === newRow.id)) {
+        const cleanAdm = (newRow.admission_no || '').trim().toLowerCase();
+        const existingIdx = this.students.findIndex(s => s.id === newRow.id || (s.admission_no && s.admission_no.trim().toLowerCase() === cleanAdm));
+        if (existingIdx === -1) {
           this.students.push(newRow);
           // Broadcast in-app system notification
           this.notifications.unshift({
@@ -349,6 +500,8 @@ class FeeService {
             read: false,
             type: 'system'
           });
+        } else {
+          this.students[existingIdx] = { ...this.students[existingIdx], ...newRow };
         }
       } else if (eventType === 'UPDATE') {
         const idx = this.students.findIndex(s => s.id === newRow.id);
@@ -426,22 +579,121 @@ class FeeService {
     this.notifyListeners();
   }
 
-  async seedCloudDatabase(): Promise<void> {
+  async pushStudentsToCloud(studentsToPush: Student[]): Promise<{ success: boolean; count: number; error?: string }> {
+    if (isDemoMode || studentsToPush.length === 0) return { success: true, count: 0 };
     try {
-      console.log('Uploading default database to Supabase cloud...');
-      await Promise.allSettled([
-        supabase.from('classes').upsert(this.classes),
-        supabase.from('session_terms').upsert(this.sessions),
-        supabase.from('guardians').upsert(this.guardians),
-        supabase.from('students').upsert(this.students),
-        supabase.from('fee_structures').upsert(this.feeStructures),
-        supabase.from('payments').upsert(this.payments),
-        supabase.from('receipts').upsert(this.receipts),
-        supabase.from('profiles').upsert(this.profiles)
-      ]);
-      console.log('Seed data successfully uploaded to Supabase cloud.');
-    } catch (e) {
-      console.warn('Seed upload error:', e);
+      const clean = studentsToPush.filter(s => !s.id.startsWith('d0000000-')).map(cleanStudentForCloud);
+      for (let i = 0; i < clean.length; i += 50) {
+        const batch = clean.slice(i, i + 50);
+        const { error } = await supabase.from('students').upsert(batch, { onConflict: 'admission_no' });
+        if (error) throw error;
+      }
+      return { success: true, count: clean.length };
+    } catch (err: any) {
+      console.error('pushStudentsToCloud failed:', err);
+      this.syncStatus = 'error';
+      this.syncErrorMessage = err?.message || 'Failed to sync students to cloud';
+      this.notifyListeners();
+      return { success: false, count: 0, error: err?.message };
+    }
+  }
+
+  async pushLocalDataToCloud(): Promise<{ success: boolean; message: string; details?: any }> {
+    if (isDemoMode) {
+      return { success: false, message: 'Application is running in Demo Mode. Supabase credentials not configured.' };
+    }
+
+    try {
+      this.syncStatus = 'syncing';
+      this.notifyListeners();
+
+      // 1. Push classes
+      const cleanClasses = this.classes.filter(c => !c.id.startsWith('b0000000-')).map(cleanClassForCloud);
+      const { error: cErr } = await supabase.from('classes').upsert(cleanClasses, { onConflict: 'id' });
+      if (cErr) throw new Error(`Classes upload error: ${cErr.message}`);
+
+      // 2. Push sessions
+      const cleanSessions = this.sessions.filter(s => !s.id.startsWith('a0000000-')).map(cleanSessionForCloud);
+      const { error: sErr } = await supabase.from('session_terms').upsert(cleanSessions, { onConflict: 'id' });
+      if (sErr) throw new Error(`Sessions upload error: ${sErr.message}`);
+
+      // 3. Push profiles
+      const cleanProfiles = this.profiles.map(cleanProfileForCloud);
+      for (let i = 0; i < cleanProfiles.length; i += 50) {
+        const batch = cleanProfiles.slice(i, i + 50);
+        const { error: pErr } = await supabase.from('profiles').upsert(batch, { onConflict: 'id' });
+        if (pErr) throw new Error(`Profiles upload error: ${pErr.message}`);
+      }
+
+      // 4. Push guardians
+      const cleanGuardians = this.guardians.filter(g => !g.id.startsWith('c0000000-')).map(cleanGuardianForCloud);
+      for (let i = 0; i < cleanGuardians.length; i += 50) {
+        const batch = cleanGuardians.slice(i, i + 50);
+        const { error: gErr } = await supabase.from('guardians').upsert(batch, { onConflict: 'id' });
+        if (gErr) throw new Error(`Guardians upload error: ${gErr.message}`);
+      }
+
+      // 5. Push students
+      const cleanStudents = this.students.filter(st => !st.id.startsWith('d0000000-')).map(cleanStudentForCloud);
+      for (let i = 0; i < cleanStudents.length; i += 50) {
+        const batch = cleanStudents.slice(i, i + 50);
+        const { error: stErr } = await supabase.from('students').upsert(batch, { onConflict: 'admission_no' });
+        if (stErr) throw new Error(`Students upload error: ${stErr.message}`);
+      }
+
+      // 6. Push fee structures
+      const cleanFS = this.feeStructures.map(cleanFeeStructureForCloud);
+      for (let i = 0; i < cleanFS.length; i += 50) {
+        const batch = cleanFS.slice(i, i + 50);
+        const { error: fsErr } = await supabase.from('fee_structures').upsert(batch, { onConflict: 'id' });
+        if (fsErr) throw new Error(`Fee structures upload error: ${fsErr.message}`);
+      }
+
+      // 7. Push payments
+      const cleanPayments = this.payments.map(cleanPaymentForCloud);
+      for (let i = 0; i < cleanPayments.length; i += 50) {
+        const batch = cleanPayments.slice(i, i + 50);
+        const { error: payErr } = await supabase.from('payments').upsert(batch, { onConflict: 'reference' });
+        if (payErr) throw new Error(`Payments upload error: ${payErr.message}`);
+      }
+
+      // 8. Push receipts
+      const cleanReceipts = this.receipts.map(cleanReceiptForCloud);
+      for (let i = 0; i < cleanReceipts.length; i += 50) {
+        const batch = cleanReceipts.slice(i, i + 50);
+        const { error: recErr } = await supabase.from('receipts').upsert(batch, { onConflict: 'receipt_no' });
+        if (recErr) throw new Error(`Receipts upload error: ${recErr.message}`);
+      }
+
+      this.syncStatus = 'synced';
+      this.syncErrorMessage = null;
+      this.cloudStudentCount = cleanStudents.length;
+      this.lastSyncedAt = new Date();
+      this.notifyListeners();
+
+      return {
+        success: true,
+        message: `Successfully synchronized all ${cleanStudents.length} students, ${cleanGuardians.length} guardians, and school records to Supabase cloud!`,
+        details: {
+          students: cleanStudents.length,
+          guardians: cleanGuardians.length,
+          classes: cleanClasses.length,
+          payments: cleanPayments.length
+        }
+      };
+    } catch (err: any) {
+      console.error('Error in pushLocalDataToCloud:', err);
+      this.syncStatus = 'error';
+      this.syncErrorMessage = err?.message || 'Failed to upload records to cloud';
+      this.notifyListeners();
+      return { success: false, message: err?.message || 'Failed to upload records to cloud' };
+    }
+  }
+
+  async seedCloudDatabase(): Promise<void> {
+    const res = await this.pushLocalDataToCloud();
+    if (!res.success) {
+      throw new Error(res.message);
     }
   }
 
@@ -620,6 +872,33 @@ class FeeService {
       }
     }
     this.feeStructures = Array.from(fsMap.values());
+
+    // 5. Deduplicate Students by normalized admission_no & purge legacy dummy UUIDs
+    const studentMap = new Map<string, Student>();
+    const studentIdRedirects = new Map<string, string>();
+
+    // Filter out any legacy dummy UUID seed students (d0000000-...)
+    const cleanStudentList = this.students.filter(s => !s.id.startsWith('d0000000-'));
+
+    for (const s of cleanStudentList) {
+      const key = (s.admission_no || s.id).trim().toLowerCase();
+      if (!studentMap.has(key)) {
+        studentMap.set(key, s);
+      } else {
+        const canonical = studentMap.get(key)!;
+        studentIdRedirects.set(s.id, canonical.id);
+      }
+    }
+    this.students = Array.from(studentMap.values());
+
+    if (studentIdRedirects.size > 0) {
+      this.payments = this.payments.map(p => {
+        if (studentIdRedirects.has(p.student_id)) {
+          return { ...p, student_id: studentIdRedirects.get(p.student_id)! };
+        }
+        return p;
+      });
+    }
   }
 
   // --- AUTH & ROLE METHODS ---
@@ -967,7 +1246,9 @@ class FeeService {
     saveStorage(STORAGE_KEYS.CLASSES, this.classes);
 
     if (!isDemoMode) {
-      supabase.from('classes').insert(newClass).then(() => {});
+      supabase.from('classes').insert(cleanClassForCloud(newClass)).then(({ error }) => {
+        if (error) console.error('Supabase class insert failed:', error);
+      });
     }
 
     this.notifyListeners();
@@ -1009,7 +1290,9 @@ class FeeService {
     saveStorage(STORAGE_KEYS.SESSIONS, this.sessions);
 
     if (!isDemoMode) {
-      supabase.from('session_terms').insert(newSession).then(() => {});
+      supabase.from('session_terms').insert(cleanSessionForCloud(newSession)).then(({ error }) => {
+        if (error) console.error('Supabase session insert failed:', error);
+      });
     }
 
     this.notifyListeners();
@@ -1134,9 +1417,18 @@ class FeeService {
 
     // Sync to Supabase cloud
     if (!isDemoMode) {
-      supabase.from('guardians').upsert(targetGuardian).then(() => {});
+      supabase.from('guardians').upsert(cleanGuardianForCloud(targetGuardian), { onConflict: 'id' }).then(({ error }) => {
+        if (error) {
+          console.error('Supabase guardian upsert failed:', error);
+          this.syncStatus = 'error';
+          this.syncErrorMessage = `Guardian cloud sync failed: ${error.message}`;
+          this.notifyListeners();
+        }
+      });
       if (parentProfile) {
-        supabase.from('profiles').upsert(parentProfile).then(() => {});
+        supabase.from('profiles').upsert(cleanProfileForCloud(parentProfile), { onConflict: 'id' }).then(({ error }) => {
+          if (error) console.error('Supabase profile upsert failed:', error);
+        });
       }
     }
 
@@ -1248,10 +1540,27 @@ class FeeService {
 
     // Sync to Supabase cloud
     if (!isDemoMode) {
-      // Strip join properties before saving to database
-      const { school_class, guardian, ...cleanStudent } = newStudent as any;
-      supabase.from('students').insert(cleanStudent).then(() => {});
-      supabase.from('profiles').upsert(studentProfile).then(() => {});
+      const cleanStudent = cleanStudentForCloud(newStudent);
+      const cleanProf = cleanProfileForCloud(studentProfile);
+
+      supabase.from('students').insert(cleanStudent).then(({ error }) => {
+        if (error) {
+          console.error('Supabase student insert failed:', error);
+          this.syncStatus = 'error';
+          this.syncErrorMessage = `Student cloud sync failed: ${error.message}`;
+          this.notifyListeners();
+        } else {
+          console.log('Student successfully synced to Supabase cloud:', cleanStudent.admission_no);
+          this.syncStatus = 'synced';
+          this.syncErrorMessage = null;
+          if (this.cloudStudentCount !== null) this.cloudStudentCount++;
+          this.notifyListeners();
+        }
+      });
+
+      supabase.from('profiles').upsert(cleanProf).then(({ error }) => {
+        if (error) console.error('Supabase profile upsert failed:', error);
+      });
     }
 
     this.notifyListeners();
@@ -1265,8 +1574,15 @@ class FeeService {
     saveStorage(STORAGE_KEYS.STUDENTS, this.students);
 
     if (!isDemoMode) {
-      const { school_class, guardian, ...cleanUpdates } = updates as any;
-      supabase.from('students').update(cleanUpdates).eq('id', id).then(() => {});
+      const cleanUpdates = cleanStudentForCloud(this.students[index]);
+      supabase.from('students').update(cleanUpdates).eq('id', id).then(({ error }) => {
+        if (error) {
+          console.error('Supabase student update failed:', error);
+          this.syncStatus = 'error';
+          this.syncErrorMessage = `Student update cloud sync failed: ${error.message}`;
+          this.notifyListeners();
+        }
+      });
     }
 
     this.notifyListeners();
@@ -1303,7 +1619,9 @@ class FeeService {
     saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
 
     if (!isDemoMode) {
-      supabase.from('fee_structures').insert(newFs).then(() => {});
+      supabase.from('fee_structures').insert(cleanFeeStructureForCloud(newFs)).then(({ error }) => {
+        if (error) console.error('Supabase fee_structures insert failed:', error);
+      });
     }
 
     this.notifyListeners();
@@ -1315,7 +1633,9 @@ class FeeService {
     saveStorage(STORAGE_KEYS.FEE_STRUCTURES, this.feeStructures);
 
     if (!isDemoMode) {
-      supabase.from('fee_structures').delete().eq('id', id).then(() => {});
+      supabase.from('fee_structures').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Supabase fee_structures delete failed:', error);
+      });
     }
 
     this.notifyListeners();
@@ -1393,9 +1713,12 @@ class FeeService {
 
     // Sync to Supabase cloud
     if (!isDemoMode) {
-      const { student, fee_structure, recorder, ...cleanPayment } = payment as any;
-      supabase.from('payments').insert(cleanPayment).then(() => {});
-      supabase.from('receipts').insert(receipt).then(() => {});
+      supabase.from('payments').insert(cleanPaymentForCloud(payment)).then(({ error }) => {
+        if (error) console.error('Supabase payment insert failed:', error);
+      });
+      supabase.from('receipts').insert(cleanReceiptForCloud(receipt)).then(({ error }) => {
+        if (error) console.error('Supabase receipt insert failed:', error);
+      });
     }
 
     // Broadcast Real-Time Notification & Email Message

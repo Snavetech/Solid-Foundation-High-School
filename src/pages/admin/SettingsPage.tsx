@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SCHOOL_INFO } from '../../services/mockData';
 import { feeService } from '../../services/feeService';
 import { emailService, updateEmailJSConfig } from '../../services/emailService';
-import { Settings, ShieldCheck, KeyRound, Lock, User, GraduationCap, Mail, Phone, CheckCircle2, AlertCircle, Building2, Download, RefreshCw, Database, Sparkles, Send } from 'lucide-react';
+import { Settings, ShieldCheck, KeyRound, Lock, User, GraduationCap, Mail, Phone, CheckCircle2, AlertCircle, Building2, Download, RefreshCw, Database, Sparkles, Send, Copy, ExternalLink, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const currentUser = feeService.getCurrentUser();
@@ -837,15 +837,155 @@ const SystemBackupCard: React.FC = () => {
 };
 
 /* Live Cloud Database & Multi-Device Sync Card */
+const SUPABASE_MIGRATION_SQL = `-- ==============================================================================
+-- SOLID FOUNDATION HIGH SCHOOL: DEFINITIVE CLOUD DATABASE FIX & REALTIME SYNC
+-- Run this in your Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/vufmlngnsrtyaaalnqor/sql/new
+-- ==============================================================================
+
+-- 1. DROP EXISTING TABLES & CONSTRAINTS CLEANLY
+-- Drops old tables with UUID columns and dummy seed data
+DROP TABLE IF EXISTS receipts CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS fee_structures CASCADE;
+DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS guardians CASCADE;
+DROP TABLE IF EXISTS session_terms CASCADE;
+DROP TABLE IF EXISTS classes CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
+-- 2. CREATE CLEAN TABLES WITH TEXT PRIMARY KEYS & COMPATIBLE STRING IDs
+CREATE TABLE classes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  arm TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE session_terms (
+  id TEXT PRIMARY KEY,
+  session TEXT NOT NULL,
+  term TEXT NOT NULL,
+  is_current BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE guardians (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  relationship TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE students (
+  id TEXT PRIMARY KEY,
+  admission_no TEXT UNIQUE NOT NULL,
+  full_name TEXT NOT NULL,
+  class_id TEXT,
+  guardian_id TEXT,
+  status TEXT DEFAULT 'active',
+  photo_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE fee_structures (
+  id TEXT PRIMARY KEY,
+  class_id TEXT,
+  session_term_id TEXT,
+  fee_item TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  is_compulsory BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE payments (
+  id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  fee_structure_id TEXT,
+  amount NUMERIC NOT NULL,
+  method TEXT NOT NULL,
+  reference TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'success',
+  recorded_by TEXT,
+  paid_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE receipts (
+  id TEXT PRIMARY KEY,
+  payment_id TEXT NOT NULL,
+  receipt_no TEXT UNIQUE NOT NULL,
+  pdf_url TEXT,
+  issued_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE profiles (
+  id TEXT PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  admission_no TEXT,
+  password TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. PERMISSIVE ROW LEVEL SECURITY POLICIES (ALLOW ANON CLIENT READ & WRITE)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_terms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guardians ENABLE ROW LEVEL SECURITY;
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_structures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read/write profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write classes" ON classes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write session_terms" ON session_terms FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write guardians" ON guardians FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write students" ON students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write fee_structures" ON fee_structures FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write payments" ON payments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon read/write receipts" ON receipts FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. ENABLE REALTIME WEBSOCKET BROADCASTING ACROSS ALL DEVICES
+DO $$
+BEGIN
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE students; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE guardians; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE payments; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE receipts; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE classes; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE session_terms; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE fee_structures; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE profiles; EXCEPTION WHEN duplicate_object THEN NULL; END;
+END $$;
+
+ALTER TABLE students REPLICA IDENTITY FULL;
+ALTER TABLE guardians REPLICA IDENTITY FULL;
+ALTER TABLE payments REPLICA IDENTITY FULL;
+ALTER TABLE receipts REPLICA IDENTITY FULL;
+ALTER TABLE classes REPLICA IDENTITY FULL;
+ALTER TABLE session_terms REPLICA IDENTITY FULL;
+ALTER TABLE fee_structures REPLICA IDENTITY FULL;
+ALTER TABLE profiles REPLICA IDENTITY FULL;`;
+
 const CloudDatabaseCard: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState(feeService.getSyncStatus());
+  const [cloudStats, setCloudStats] = useState(feeService.getCloudStats());
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showSqlDrawer, setShowSqlDrawer] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
     const unsub = feeService.subscribe(() => {
       setSyncStatus(feeService.getSyncStatus());
+      setCloudStats(feeService.getCloudStats());
     });
     return () => unsub();
   }, []);
@@ -855,101 +995,244 @@ const CloudDatabaseCard: React.FC = () => {
     setFeedback(null);
     try {
       await feeService.pullCloudData(true);
-      setFeedback('Cloud records synced with this computer.');
+      setFeedback({ type: 'success', text: 'Cloud records synchronized successfully with this computer.' });
     } catch (e: any) {
-      setFeedback(`Sync issue: ${e?.message || 'Connection delayed'}`);
+      setFeedback({ type: 'error', text: `Sync issue: ${e?.message || 'Connection delayed'}` });
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setFeedback(null), 4000);
+      setTimeout(() => setFeedback(null), 5000);
     }
   };
 
-  const handleSeedCloud = async () => {
-    if (!window.confirm("Upload current local data to Supabase cloud? This will ensure other computers receive all current classes, students, and payment records.")) {
+  const handlePushToCloud = async () => {
+    if (!window.confirm("Upload all local records (students, classes, guardians, payments) to Supabase cloud? This ensures all other computers and devices receive all registered students.")) {
       return;
     }
     setIsUploading(true);
     setFeedback(null);
     try {
-      await feeService.seedCloudDatabase();
-      setFeedback('Current database successfully pushed to Supabase cloud!');
+      const res = await feeService.pushLocalDataToCloud();
+      if (res.success) {
+        setFeedback({ type: 'success', text: res.message });
+      } else {
+        setFeedback({ type: 'error', text: res.message });
+      }
     } catch (e: any) {
-      setFeedback(`Upload failed: ${e?.message || 'Error uploading records'}`);
+      setFeedback({ type: 'error', text: `Upload failed: ${e?.message || 'Error uploading records'}` });
     } finally {
       setIsUploading(false);
-      setTimeout(() => setFeedback(null), 5000);
+      setTimeout(() => setFeedback(null), 7000);
     }
   };
 
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_MIGRATION_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
+
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'Not configured';
+  const hasDiscrepancy = cloudStats.cloudStudents !== null && cloudStats.cloudStudents < cloudStats.localStudents;
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-5">
-      <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-xs space-y-6">
+      <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         <div>
           <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-            <Database className="w-5 h-5 text-indigo-600" /> Multi-Device Cloud Persistence & Live Sync
+            <Database className="w-5 h-5 text-indigo-600" /> Multi-Device Cloud Persistence & Realtime Sync
           </h3>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Real-time synchronization across Bursar and Super Admin computers via Supabase PostgreSQL & WebSockets
+            Automatic multi-device synchronization across Bursar and Super Admin computers via Supabase PostgreSQL & WebSockets
           </p>
         </div>
-        <div className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-full border flex items-center gap-1.5 w-fit ${
-          syncStatus.status === 'synced'
+        <div className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-full border flex items-center gap-1.5 w-fit ${
+          syncStatus.status === 'synced' && !hasDiscrepancy
             ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+            : hasDiscrepancy
+            ? 'bg-amber-50 text-amber-700 border-amber-200/60'
             : syncStatus.status === 'syncing'
             ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
-            : 'bg-amber-50 text-amber-700 border-amber-200/60'
+            : 'bg-rose-50 text-rose-700 border-rose-200/60'
         }`}>
           <span className={`w-2 h-2 rounded-full ${
-            syncStatus.status === 'synced' ? 'bg-emerald-500 animate-pulse' : syncStatus.status === 'syncing' ? 'bg-indigo-500 animate-ping' : 'bg-amber-500'
+            syncStatus.status === 'synced' && !hasDiscrepancy
+              ? 'bg-emerald-500 animate-pulse'
+              : hasDiscrepancy
+              ? 'bg-amber-500'
+              : syncStatus.status === 'syncing'
+              ? 'bg-indigo-500 animate-ping'
+              : 'bg-rose-500'
           }`} />
-          <span>{syncStatus.status === 'synced' ? 'Active Realtime Sync' : syncStatus.status === 'syncing' ? 'Syncing...' : 'Local Cache Active'}</span>
+          <span>
+            {syncStatus.status === 'synced' && !hasDiscrepancy
+              ? 'Realtime Synced'
+              : hasDiscrepancy
+              ? 'Unsynced Local Data'
+              : syncStatus.status === 'syncing'
+              ? 'Syncing...'
+              : 'Cloud Connection Issue'}
+          </span>
         </div>
       </div>
 
       {feedback && (
-        <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl text-xs font-bold text-indigo-800 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
-          <span>{feedback}</span>
+        <div className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2.5 border ${
+          feedback.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
+          {feedback.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          )}
+          <span>{feedback.text}</span>
         </div>
       )}
 
-      <div className="space-y-3 text-xs">
-        <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <span className="font-bold text-slate-500 uppercase text-[10px] block">Connected Database</span>
-              <span className="font-mono font-bold text-slate-900 text-xs">{supabaseUrl}</span>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              Changes made by Bursar or Super Admin propagate automatically in real-time.
-            </div>
-          </div>
+      {/* Sync Status Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+          <span className="font-bold text-slate-400 uppercase text-[10px] block">Local Students (This Device)</span>
+          <span className="text-xl font-black text-slate-900 mt-1 block">{cloudStats.localStudents}</span>
+          <span className="text-[11px] text-slate-500 mt-0.5 block">Stored in local browser cache</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handlePullNow}
-            disabled={isSyncing}
-            className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Refreshing...' : 'Sync Cloud Now'}</span>
-          </button>
+        <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+          <span className="font-bold text-slate-400 uppercase text-[10px] block">Cloud Students (Supabase)</span>
+          <span className="text-xl font-black text-slate-900 mt-1 block">
+            {cloudStats.cloudStudents !== null ? cloudStats.cloudStudents : 'Checking...'}
+          </span>
+          <span className="text-[11px] text-slate-500 mt-0.5 block">Available to other devices & computers</span>
+        </div>
 
-          <button
-            type="button"
-            onClick={handleSeedCloud}
-            disabled={isUploading}
-            className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>{isUploading ? 'Uploading Data...' : 'Push Current Records to Cloud'}</span>
-          </button>
+        <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+          <span className="font-bold text-slate-400 uppercase text-[10px] block">Cross-Device Status</span>
+          <span className={`text-sm font-extrabold mt-1.5 block ${
+            hasDiscrepancy ? 'text-amber-600' : 'text-emerald-600'
+          }`}>
+            {hasDiscrepancy ? 'Needs Cloud Upload' : 'Fully Synchronized'}
+          </span>
+          <span className="text-[11px] text-slate-500 mt-0.5 block">
+            {hasDiscrepancy
+              ? `${cloudStats.localStudents - (cloudStats.cloudStudents || 0)} local record(s) pending upload`
+              : 'All devices see identical records'}
+          </span>
         </div>
       </div>
+
+      {/* Discrepancy Action Banner */}
+      {hasDiscrepancy && (
+        <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-extrabold text-amber-900">Synchronize Registered Students Across Devices</p>
+              <p className="text-amber-700 text-[11px] mt-0.5">
+                This computer has {cloudStats.localStudents} students while the cloud database currently has {cloudStats.cloudStudents}.
+                Click &ldquo;Push All Records to Cloud&rdquo; to propagate all {cloudStats.localStudents} students to every other device.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handlePushToCloud}
+            disabled={isUploading}
+            className="py-2 px-3.5 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs rounded-xl shadow-xs transition shrink-0 flex items-center gap-1.5"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>{isUploading ? 'Uploading...' : 'Push to Cloud Now'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Error Message Alert */}
+      {syncStatus.errorMessage && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-extrabold block">Supabase Sync Notice:</span>
+            <span className="font-mono text-[11px]">{syncStatus.errorMessage}</span>
+            {syncStatus.errorMessage.includes('uuid') && (
+              <p className="text-[11px] text-rose-700 font-semibold mt-1">
+                Your Supabase tables currently enforce UUID primary keys instead of TEXT strings. Please run the SQL Migration below in your Supabase SQL Editor to enable full string ID cross-device sync.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          type="button"
+          onClick={handlePushToCloud}
+          disabled={isUploading}
+          className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+        >
+          <Database className={`w-3.5 h-3.5 ${isUploading ? 'animate-pulse' : ''}`} />
+          <span>{isUploading ? 'Uploading Records...' : `Push All Records to Cloud (${cloudStats.localStudents} Students)`}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handlePullNow}
+          disabled={isSyncing}
+          className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          <span>{isSyncing ? 'Refreshing...' : 'Pull Latest from Cloud'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowSqlDrawer(!showSqlDrawer)}
+          className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl transition flex items-center gap-2"
+        >
+          <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+          <span>Supabase SQL Migration Script</span>
+          {showSqlDrawer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {/* Collapsible Supabase SQL Drawer */}
+      {showSqlDrawer && (
+        <div className="p-5 bg-slate-900 text-slate-100 rounded-2xl space-y-4 text-xs border border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                <Database className="w-4 h-4 text-indigo-400" /> Supabase Database Schema Migration
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Run this one-time SQL script in your Supabase SQL Editor to allow text primary keys and enable live WebSocket cross-device sync.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="https://supabase.com/dashboard/project/vufmlngnsrtyaaalnqor/sql/new"
+                target="_blank"
+                rel="noreferrer"
+                className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition"
+              >
+                <span>Open SQL Editor</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <button
+                type="button"
+                onClick={handleCopySql}
+                className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition shadow-xs"
+              >
+                <Copy className="w-3 h-3" />
+                <span>{copiedSql ? 'SQL Copied!' : 'Copy Migration SQL'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-60 overflow-y-auto font-mono text-[11px] bg-slate-950 p-4 rounded-xl text-slate-300 border border-slate-800/80 leading-relaxed whitespace-pre-wrap select-all">
+            {SUPABASE_MIGRATION_SQL}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
